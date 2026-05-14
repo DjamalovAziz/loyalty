@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CASHIER
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  passwordHash String
+  role         Role
+  telegramChatId String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+model Client {
+  id           String        @id @default(uuid())
+  fullName     String
+  phone        String        @unique
+  balance      Int           @default(0)
+  qrToken      String        @unique @default(uuid())
+  email          String?
+  telegramChatId String?
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+model Transaction {
+  id           String          @id @default(uuid())
+  clientId     String
+  userId       String
+  type         TransactionType
+  amount       Int
+  balanceAfter Int
+  comment      String?
+  createdAt    DateTime        @default(now())
+  client       Client          @relation(fields: [clientId], references: [id])
+  user         User            @relation(fields: [userId], references: [id])
+}
