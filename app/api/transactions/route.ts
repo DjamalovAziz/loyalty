@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
+import { sendEmail, bonusOperationEmail } from '@/lib/email'
+import { sendTelegram, bonusOperationTg } from '@/lib/telegram'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -39,16 +41,12 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { clientId, type, amount, comment } = await req.json()
-
   if (!clientId || !type || !amount || amount <= 0) {
     return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 })
   }
 
-  // Найти пользователя по email из сессии
   const sessionUser = session.user as any
-  const userEmail = sessionUser?.email || session.user?.email
-
-  const dbUser = await prisma.user.findUnique({ where: { email: userEmail! } })
+  const dbUser = await prisma.user.findUnique({ where: { email: sessionUser?.email } })
   if (!dbUser) {
     return NextResponse.json({ error: 'Пользователь не найден' }, { status: 401 })
   }
@@ -63,10 +61,9 @@ export async function POST(req: NextRequest) {
       }
 
       const newBalance = type === 'CREDIT' ? client.balance + amount : client.balance - amount
-
       await tx.client.update({ where: { id: clientId }, data: { balance: newBalance } })
 
-      const transaction = await tx.transaction.create({
+      return await tx.transaction.create({
         data: {
           clientId,
           userId: dbUser.id,
@@ -80,9 +77,28 @@ export async function POST(req: NextRequest) {
           user: { select: { name: true, email: true } },
         },
       })
-
-      return transaction
     })
+
+    // Уведомления после транзакции
+    const client = await prisma.client.findUnique({ where: { id: clientId } })
+    if (client) {
+      const clientUrl = `${process.env.NEXTAUTH_URL}/client/${client.qrToken}`
+      const params = {
+        fullName: client.fullName,
+        type: type as 'CREDIT' | 'DEBIT',
+        amount,
+        balanceAfter: result.balanceAfter,
+        comment,
+        clientUrl,
+      }
+      if (client.telegramChatId) {
+        await sendTelegram(client.telegramChatId, bonusOperationTg(params))
+      }
+      if (client.email) {
+        const { subject, html } = bonusOperationEmail(params)
+        await sendEmail(client.email, subject, html)
+      }
+    }
 
     return NextResponse.json(result, { status: 201 })
 

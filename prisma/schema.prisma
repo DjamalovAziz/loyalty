@@ -18,27 +18,29 @@ enum TransactionType {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  name         String
-  passwordHash String
-  role         Role
+  id             String        @id @default(uuid())
+  email          String        @unique
+  name           String
+  passwordHash   String
+  role           Role
+  isActive       Boolean       @default(true)
   telegramChatId String?
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
+  verifyToken    String?       @unique
+  createdAt      DateTime      @default(now())
+  transactions   Transaction[]
 }
 
 model Client {
-  id           String        @id @default(uuid())
-  fullName     String
-  phone        String        @unique
-  balance      Int           @default(0)
-  qrToken      String        @unique @default(uuid())
+  id             String        @id @default(uuid())
+  fullName       String
+  phone          String        @unique
   email          String?
+  balance        Int           @default(0)
+  qrToken        String        @unique @default(uuid())
   telegramChatId String?
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
+  verifyToken    String?       @unique
+  createdAt      DateTime      @default(now())
+  transactions   Transaction[]
 }
 
 model Transaction {

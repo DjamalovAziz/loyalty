@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { sendEmail, staffWelcomeEmail } from '@/lib/email'
+import { getTelegramBotLink } from '@/lib/telegram'
+import { randomUUID } from 'crypto'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -10,7 +13,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const users = await prisma.user.findMany({
-    select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
+    select: {
+      id: true, email: true, name: true, role: true,
+      isActive: true, createdAt: true, telegramChatId: true,
+    },
     orderBy: { createdAt: 'desc' },
   })
   return NextResponse.json(users)
@@ -29,11 +35,29 @@ export async function POST(req: NextRequest) {
 
   try {
     const hash = await bcrypt.hash(password, 12)
+    const verifyToken = randomUUID()
+
     const user = await prisma.user.create({
-      data: { email, name, passwordHash: hash, role },
-      select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
+      data: { email, name, passwordHash: hash, role, verifyToken },
+      select: {
+        id: true, email: true, name: true, role: true,
+        isActive: true, createdAt: true, telegramChatId: true,
+      },
     })
-    return NextResponse.json(user, { status: 201 })
+
+    const loginUrl = `${process.env.NEXTAUTH_URL}/login`
+    const tgLink = getTelegramBotLink(verifyToken)
+
+    const { subject, html } = staffWelcomeEmail({
+      name: user.name,
+      email: user.email,
+      password,
+      role: user.role,
+      loginUrl,
+    })
+    await sendEmail(user.email, subject, html)
+
+    return NextResponse.json({ ...user, telegramLink: tgLink }, { status: 201 })
   } catch (e: any) {
     if (e.code === 'P2002') {
       return NextResponse.json({ error: 'Email уже используется' }, { status: 409 })

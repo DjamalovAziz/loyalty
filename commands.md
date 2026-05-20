@@ -1,9 +1,1 @@
-https://37b9-84-54-71-37.ngrok-free.app
-
-echo "# loyalty" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/DjamalovAziz/loyalty.git
-git push -u origin main
+curl -X POST "https://api.telegram.org/bot8974755175:AAGbEUqghLvwaxT5EBuLWr1-W_1aDf06mYs/setWebhook?url=https://18e3-84-54-73-87.ngrok-free.app"
