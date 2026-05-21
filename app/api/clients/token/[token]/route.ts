@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  const { token } = await params
   const client = await prisma.client.findUnique({
-    where: { qrToken: params.token },
+    where: { qrToken: token },
     include: {
       transactions: {
         orderBy: { createdAt: 'desc' },
