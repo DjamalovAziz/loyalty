@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import { useTheme } from '@/app/providers'
 
 const nav = [
   {
@@ -32,10 +33,21 @@ const nav = [
       </svg>
     ),
   },
+  {
+    href: '/admin/settings',
+    label: 'Настройки',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
 ]
 
 export function AdminSidebar({ user }: { user: { name?: string; email?: string; role: string } }) {
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
 
   return (
     <aside className="w-56 bg-white border-r border-gray-100 flex flex-col">
@@ -71,7 +83,20 @@ export function AdminSidebar({ user }: { user: { name?: string; email?: string; 
       </nav>
 
       <div className="p-3 border-t border-gray-100">
-        <div className="px-3 py-2 mb-1">
+        <button
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {theme === 'light' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m8.66-9.66l-.71.71M5.05 5.05l-.71.71M21 12h-1M4 12H3m15.36 6.36l-.71-.71M6.34 17.66l.71-.71M16.95 7.05A7.02 7.02 0 115.05 16.95 7 7 0 0016.95 7.05z" />
+            )}
+          </svg>
+          {theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+        </button>
+        <div className="px-3 py-2 mt-1">
           <p className="text-xs font-medium text-gray-900 truncate">{user.name}</p>
           <p className="text-xs text-gray-400 truncate">{user.email}</p>
         </div>
