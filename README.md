@@ -1,7 +1,7 @@
 # Программа лояльности
 
 Веб-приложение для управления бонусной программой.
-Стек: Next.js 15 (App Router) · TypeScript · Prisma · NextAuth.js · Tailwind CSS · PostgreSQL
+Стек: Next.js 16 (App Router) · TypeScript · Prisma · NextAuth.js · Tailwind CSS · PostgreSQL
 
 ---
 
@@ -76,12 +76,22 @@ location / {
 app/admin/clients      # Клиенты (CRUD + бонусы + QR)
 app/admin/transactions # Журнал + CSV/Excel экспорт
 app/admin/users        # Сотрудники (кассиры)
+app/admin/settings     # Настройки (переключение темы)
 app/cashier            # Интерфейс кассира (сканер QR)
 app/client/[token]     # Публичная страница клиента
 app/api/               # REST API
 components/            # AdminSidebar, ClientModal, QRModal
 prisma/                # Schema + seed
 ```
+
+## Особенности
+
+### Темная тема
+Приложение поддерживает светлую и тёмную темы. Переключение доступно:
+- В боковом меню (кнопка рядом с именем пользователя)
+- На странице настроек (`/admin/settings`)
+
+Выбор темы сохраняется в localStorage и автоматически применяется при следующем входе.
 
 ## Роли
 
@@ -120,3 +130,5 @@ PATCH /api/users/[id]       — деактивировать/активиров�
 
 GET  /api/export            — скачать CSV или Excel (ADMIN only)
 ```
+
+Создать тестирование по правильной архитектуре, охватывало весь проект от а до я, и что-бы все тесты проходили!

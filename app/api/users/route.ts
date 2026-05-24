@@ -33,6 +33,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Все поля обязательны' }, { status: 400 })
   }
 
+  if (password.length < 6) {
+    return NextResponse.json({ error: 'Пароль должен быть не менее 6 символов' }, { status: 400 })
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return NextResponse.json({ error: 'Некорректный email' }, { status: 400 })
+  }
+
+  const validRoles = ['ADMIN', 'CASHIER']
+  if (!validRoles.includes(role)) {
+    return NextResponse.json({ error: 'Некорректная роль' }, { status: 400 })
+  }
+
   try {
     const hash = await bcrypt.hash(password, 12)
     const verifyToken = randomUUID()

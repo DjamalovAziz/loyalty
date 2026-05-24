@@ -14,6 +14,8 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false)
   const [telegramLink, setTelegramLink] = useState('')
   const [createdName, setCreatedName] = useState('')
+  const [createdEmail, setCreatedEmail] = useState('')
+  const [createdPassword, setCreatedPassword] = useState('')
 
   async function fetchUsers() {
     setLoading(true)
@@ -26,6 +28,10 @@ export default function UsersPage() {
 
   async function handleCreate() {
     if (!email || !name || !password) { setError('Заполните все поля'); return }
+    if (password.length < 6) { setError('Пароль должен быть не менее 6 символов'); return }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) { setError('Некорректный email'); return }
+    
     setSaving(true)
     setError('')
     const res = await fetch('/api/users', {
@@ -41,6 +47,8 @@ export default function UsersPage() {
     }
     const data = await res.json()
     setCreatedName(name)
+    setCreatedEmail(email)
+    setCreatedPassword(password)
     setTelegramLink(data.telegramLink || '')
     setEmail(''); setName(''); setPassword('')
     fetchUsers()
@@ -57,6 +65,11 @@ export default function UsersPage() {
 
   function copyLink(link: string) {
     navigator.clipboard.writeText(link)
+  }
+
+  function copyCredentials() {
+    const text = `Email: ${createdEmail}\nПароль: ${createdPassword}`
+    navigator.clipboard.writeText(text)
   }
 
   return (
@@ -122,27 +135,42 @@ export default function UsersPage() {
               </div>
             </>
           ) : (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.367l-2.95-.924c-.64-.204-.657-.64.136-.953l11.57-4.461c.537-.194 1.006.131.636.22z" />
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-sm font-medium text-blue-800">Сотрудник {createdName} создан!</p>
+                <p className="text-sm font-medium text-emerald-800">Сотрудник {createdName} создан!</p>
               </div>
-              <p className="text-xs text-gray-500 mb-1">✉️ Email с данными для входа отправлен</p>
-              <p className="text-xs text-blue-600 mb-3">
-                Отправьте сотруднику эту ссылку для привязки Telegram уведомлений:
+              
+              <div className="bg-white rounded-lg border border-emerald-200 p-3 mb-3">
+                <p className="text-xs text-gray-500 mb-1">Данные для входа:</p>
+                <div className="font-mono text-xs">
+                  <div className="text-gray-900">Email: {createdEmail}</div>
+                  <div className="text-gray-900">Пароль: {createdPassword}</div>
+                </div>
+                <button onClick={copyCredentials}
+                  className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                  Скопировать данные
+                </button>
+              </div>
+              
+              <p className="text-xs text-emerald-700 mb-2">
+                ✉️ Email с деталями отправлен сотруднику
+              </p>
+              <p className="text-xs text-emerald-700 mb-2">
+                Telegram для уведомлений:
               </p>
               <div className="flex gap-2 mb-3">
                 <input readOnly value={telegramLink}
-                  className="flex-1 px-2 py-1.5 bg-white border border-blue-200 rounded-lg text-xs text-gray-600 truncate" />
+                  className="flex-1 px-2 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs text-gray-600 truncate" />
                 <button onClick={() => copyLink(telegramLink)}
-                  className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">
+                  className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors whitespace-nowrap">
                   Копировать
                 </button>
               </div>
               <button onClick={() => { setTelegramLink(''); setShowForm(false) }}
-                className="w-full border border-blue-200 text-blue-700 py-2 rounded-lg text-sm hover:bg-blue-100 transition-colors">
+                className="w-full border border-emerald-200 text-emerald-700 py-2 rounded-lg text-sm hover:bg-emerald-100 transition-colors">
                 Готово
               </button>
             </div>

@@ -106,32 +106,32 @@ body {
   background-color: #059669;
 }
 
+.dark .bg-emerald-200 {
+  background-color: #065f46;
+}
+
+.dark .border-emerald-200 {
+  border-color: #059669;
+}
+
+.dark .bg-emerald-100 {
+  background-color: #064e3b;
+}
+
+.dark .text-emerald-800 {
+  color: #a7f3d0;
+}
+
+.dark .hover\:bg-emerald-100:hover {
+  background-color: #065f46;
+}
+
 .dark .bg-gray-100 {
   background-color: #374151;
 }
 
 .dark .text-gray-700 {
   color: #e5e7eb;
-}
-
-.dark .bg-blue-50 {
-  background-color: #1e3a8a;
-}
-
-.dark .text-blue-800 {
-  color: #93c5fd;
-}
-
-.dark .text-blue-600 {
-  color: #60a5fa;
-}
-
-.dark .border-blue-200 {
-  border-color: #3b82f6;
-}
-
-.dark .bg-blue-100 {
-  background-color: #1e40af;
 }
 
 .dark input,
