@@ -5,57 +5,99 @@
 }
 
 body {
-  background-color: #f8f9fa;
-  color: #1a1a1a;
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 .dark body {
-  background-color: #111827;
-  color: #f3f4f6;
+  background-color: #0f172a;
+  color: #f1f5f9;
 }
 
+/* Light theme contrast improvements */
+.text-gray-900 {
+  color: #0f172a;
+}
+
+.text-gray-600 {
+  color: #334155;
+}
+
+.text-gray-500 {
+  color: #475569;
+}
+
+.text-gray-400 {
+  color: #64748b;
+}
+
+.bg-white {
+  background-color: #ffffff;
+}
+
+.bg-gray-50 {
+  background-color: #f8fafc;
+}
+
+.border-gray-100 {
+  border-color: #e2e8f0;
+}
+
+.border-gray-200 {
+  border-color: #cbd5e1;
+}
+
+/* Dark theme overrides */
 .dark .bg-white {
-  background-color: #1f2937;
+  background-color: #1e293b;
 }
 
 .dark .bg-gray-50 {
-  background-color: #111827;
+  background-color: #1e293b;
 }
 
 .dark .text-gray-900 {
-  color: #f9fafb;
+  color: #f8fafc;
 }
 
 .dark .text-gray-600 {
-  color: #d1d5db;
+  color: #cbd5e1;
 }
 
 .dark .text-gray-500 {
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
 .dark .text-gray-400 {
-  color: #9ca3af;
+  color: #64748b;
 }
 
 .dark .border-gray-100 {
-  border-color: #374151;
+  border-color: #334155;
 }
 
 .dark .border-gray-200 {
-  border-color: #4b5563;
+  border-color: #475569;
+}
+
+.dark .bg-gray-100 {
+  background-color: #1e293b;
+}
+
+.dark .text-gray-700 {
+  color: #e2e8f0;
 }
 
 .dark .divide-gray-50 {
-  border-color: #374151;
+  border-color: #334155;
 }
 
 .dark .hover\:bg-gray-50:hover {
-  background-color: #374151;
+  background-color: #334155;
 }
 
 .dark .hover\:text-gray-900:hover {
-  color: #f9fafb;
+  color: #f8fafc;
 }
 
 .dark .bg-indigo-50 {
@@ -126,22 +168,14 @@ body {
   background-color: #065f46;
 }
 
-.dark .bg-gray-100 {
-  background-color: #374151;
-}
-
-.dark .text-gray-700 {
-  color: #e5e7eb;
-}
-
 .dark input,
 .dark select {
-  background-color: #1f2937;
-  border-color: #4b5563;
-  color: #f3f4f6;
+  background-color: #1e293b;
+  border-color: #475569;
+  color: #f1f5f9;
 }
 
 .dark option {
-  background-color: #1f2937;
-  color: #f3f4f6;
+  background-color: #1e293b;
+  color: #f1f5f9;
 }
