@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
                     where: { id: client.id },
                     data: { telegramChatId: chatId, verifyToken: null },
                 })
-                await sendTelegram(chatId, `✅ <b>Привязка успешна!</b>\n\nТеперь вы будете получать уведомления о бонусах, ${client.fullName}!`)
+                const clientUrl = `${process.env.NEXTAUTH_URL}/client/${client.qrToken}`
+                await sendTelegram(chatId, `✅ <b>Привязка успешна!</b>\n\nТеперь вы будете получать уведомления о бонусах, ${client.fullName}!\n\n🔗 <a href="${clientUrl}">Перейти в личный кабинет</a>`)
                 return NextResponse.json({ ok: true })
             }
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
                     where: { id: user.id },
                     data: { telegramChatId: chatId, verifyToken: null },
                 })
-                await sendTelegram(chatId, `✅ <b>Telegram привязан!</b>\n\nДобро пожаловать, ${user.name}!`)
+                await sendTelegram(chatId, `✅ <b>Telegram привязан!</b>\n\nДобро пожаловать, ${user.name}!\n\n🔗 <a href="${process.env.NEXTAUTH_URL}/cashier">Перейти к кассе</a>`)
                 return NextResponse.json({ ok: true })
             }
 
