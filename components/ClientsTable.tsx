@@ -5,9 +5,10 @@ interface Props {
   clients: ClientRow[]
   loading: boolean
   onEdit: (c: ClientRow) => void
+  onDelete?: (id: string) => void
 }
 
-export function ClientsTable({ clients, loading, onEdit }: Props) {
+export function ClientsTable({ clients, loading, onEdit, onDelete }: Props) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-sm text-gray-400">
@@ -54,12 +55,22 @@ export function ClientsTable({ clients, loading, onEdit }: Props) {
                 {new Date(c.createdAt).toLocaleDateString('ru')}
               </td>
               <td className="px-4 py-3">
-                <button
-                  onClick={() => onEdit(c)}
-                  className="text-gray-400 hover:text-gray-700 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-                >
-                  Изменить
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onEdit(c)}
+                    className="text-gray-400 hover:text-gray-700 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                  >
+                    Изменить
+                  </button>
+                  {onDelete && (
+                    <button
+                      onClick={() => onDelete(c.id)}
+                      className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                    >
+                      Удалить
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

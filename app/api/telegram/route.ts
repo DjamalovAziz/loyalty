@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
             if (client) {
                 await prisma.client.update({
                     where: { id: client.id },
-                    data: { telegramChatId: chatId, verifyToken: null },
+                    data: { telegramChatId: chatId, verifyToken: null, isVerified: true },
                 })
                 const clientUrl = `${process.env.NEXTAUTH_URL}/client/${client.qrToken}`
                 await sendTelegram(chatId, `✅ <b>Привязка успешна!</b>\n\nТеперь вы будете получать уведомления о бонусах, ${client.fullName}!\n\n🔗 <a href="${clientUrl}">Перейти в личный кабинет</a>`)

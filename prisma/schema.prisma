@@ -39,6 +39,7 @@ model Client {
   qrToken        String        @unique @default(uuid())
   telegramChatId String?
   verifyToken    String?       @unique
+  isVerified     Boolean       @default(false)
   createdAt      DateTime      @default(now())
   transactions   Transaction[]
 }

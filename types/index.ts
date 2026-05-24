@@ -8,6 +8,7 @@ export interface ClientRow {
   balance: number
   qrToken: string
   createdAt: string
+  isVerified?: boolean
 }
 
 export interface TransactionRow {

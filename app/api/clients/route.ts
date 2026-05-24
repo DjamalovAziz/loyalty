@@ -8,20 +8,28 @@ import { randomUUID } from 'crypto'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session || (session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
+  const verified = searchParams.get('verified')
 
   const clients = await prisma.client.findMany({
-    where: search
-      ? {
-        OR: [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search } },
-        ],
-      }
-      : undefined,
+    where: {
+      ...(verified !== null
+        ? { isVerified: verified === 'true' }
+        : { isVerified: true }),
+      ...(search
+        ? {
+            OR: [
+              { fullName: { contains: search, mode: 'insensitive' } },
+              { phone: { contains: search } },
+            ],
+          }
+        : undefined),
+    },
     orderBy: { createdAt: 'desc' },
   })
 

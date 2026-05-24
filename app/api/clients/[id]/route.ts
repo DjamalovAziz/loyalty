@@ -11,7 +11,10 @@ export async function GET(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const client = await prisma.client.findUnique({ where: { id } })
+  const client = await prisma.client.findUnique({
+    where: { id },
+    include: { transactions: { orderBy: { createdAt: 'desc' }, include: { user: { select: { name: true } } } } }
+  })
   if (!client) return NextResponse.json({ error: 'Не найден' }, { status: 404 })
   return NextResponse.json(client)
 }
@@ -39,4 +42,18 @@ export async function PUT(
     }
     throw e
   }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions)
+  if (!session || (session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { id } = await params
+  await prisma.client.delete({ where: { id } })
+  return NextResponse.json({ success: true })
 }
