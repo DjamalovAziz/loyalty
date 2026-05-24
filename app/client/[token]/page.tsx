@@ -68,7 +68,6 @@ export default function ClientPublicPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-lg mx-auto">
-        {/* Header card */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
@@ -76,52 +75,49 @@ export default function ClientPublicPage() {
               <h1 className="text-xl font-semibold text-gray-900 mb-0.5">{client.fullName}</h1>
               <p className="text-sm text-gray-400">{client.phone}</p>
 
-              <div className="bg-indigo-50 rounded-xl px-4 py-3 inline-block">
+              <div className="mt-3 bg-indigo-50 rounded-xl px-4 py-3 inline-block">
                 <p className="text-xs text-indigo-400 mb-0.5">Баланс бонусов</p>
                 <p className="text-3xl font-bold text-indigo-700">{client.balance.toLocaleString('ru')}</p>
               </div>
-            </div>
-          </div>
 
-          {/* Telegram binding indicator */}
-          <div className="mt-4">
-            {client.telegramChatId ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.367l-2.95-.924c-.64-.204-.657-.64.136-.953l11.57-4.461c.537-.194 1.006.131.636.22z" />
-                </svg>
-                Telegram привязан
+              <div className="mt-4">
+                {client.telegramChatId ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.367l-2.95-.924c-.64-.204-.657-.64.136-.953l11.57-4.461c.537-.194 1.006.131.636.22z" />
+                    </svg>
+                    Telegram привязан
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <p className="text-xs text-amber-800 mb-2">
+                      Привяжите Telegram для уведомлений о бонусах
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={client.verifyToken
+                          ? `https://t.me/loyaltybotbotbot?start=${client.verifyToken}`
+                          : 'Обратитесь к администратору'}
+                        className="flex-1 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs truncate"
+                        disabled={!client.verifyToken}
+                      />
+                      <button
+                        onClick={() => {
+                          if (client.verifyToken) {
+                            const link = `https://t.me/loyaltybotbotbot?start=${client.verifyToken}`
+                            navigator.clipboard.writeText(link)
+                          }
+                        }}
+                        disabled={!client.verifyToken}
+                        className="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        Копировать
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <p className="text-xs text-amber-800 mb-2">
-                  Привяжите Telegram для уведомлений о бонусах
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    readOnly
-                    value={client.verifyToken
-                      ? `https://t.me/loyaltybotbotbot?start=${client.verifyToken}`
-                      : 'Обратитесь к администратору'}
-                    className="flex-1 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs truncate"
-                    disabled={!client.verifyToken}
-                  />
-                  <button
-                    onClick={() => {
-                      if (client.verifyToken) {
-                        const link = `https://t.me/loyaltybotbotbot?start=${client.verifyToken}`
-                        navigator.clipboard.writeText(link)
-                      }
-                    }}
-                    disabled={!client.verifyToken}
-                    className="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors whitespace-nowrap"
-                  >
-                    Копировать
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
             </div>
 
             <div className="flex flex-col items-center gap-2">
@@ -140,7 +136,6 @@ export default function ClientPublicPage() {
           </div>
         </div>
 
-        {/* Transactions */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50">
             <h2 className="font-medium text-gray-900 text-sm">История операций</h2>
