@@ -157,6 +157,7 @@ export default function CashierPage() {
             </button>
           </div>
         </div>
+        </div>
 
         <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="mx-auto max-w-sm w-full">
@@ -290,15 +291,13 @@ export default function CashierPage() {
                   >
                     {opLoading ? 'Обработка...' : opType === 'CREDIT' ? 'Начислить бонусы' : 'Списать бонусы'}
                   </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-          <span className="font-semibold text-sm text-gray-900">Касса</span>
-        </div>
-        <div className="flex items-center gap-3">
+                 </div>
+               </div>
+             )}
+           </div>
+         </div>
+       </div>
+          <div className="flex items-center gap-3">
           <span className="text-xs text-gray-400">{session?.user?.name}</span>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
