@@ -45,13 +45,21 @@ const nav = [
   },
 ]
 
-export function AdminSidebar({ user }: { user: { name?: string; email?: string; role: string } }) {
+export function AdminSidebar({ 
+  user, 
+  isMobileMenuOpen, 
+  setIsMobileMenuOpen 
+}: { 
+  user: { name?: string; email?: string; role: string };
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
+}) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
 
   return (
-    <aside className="w-56 bg-white border-r border-gray-100 flex flex-col">
-      <div className="p-4 border-b border-gray-100">
+    <aside className={`fixed left-0 top-0 h-full w-56 bg-white border-r border-gray-100 flex flex-col z-20 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static`}>
+      <div className="flex items-center justify-between p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,6 +68,14 @@ export function AdminSidebar({ user }: { user: { name?: string; email?: string; 
           </div>
           <span className="font-semibold text-sm text-gray-900">Лояльность</span>
         </div>
+        <button
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="p-1 rounded-lg hover:bg-gray-100 md:hidden"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5">
