@@ -1,0 +1,104 @@
+Сначало выходит первая оишбк
+contentScript.js:2 i18next: languageChanged en-US
+contentScript.js:2 i18next: initialized {debug: true, initImmediate: true, ns: Array(1), defaultNS: Array(1), fallbackLng: Array(1), …}
+0pqt~8bl3ukh4.js:1 Uncaught Error: `headers` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context
+    at c (0pqt~8bl3ukh4.js:1:9049)
+    at d (14a7-fp829cxt.js:36:30633)
+    at c (14a7-fp829cxt.js:36:39082)
+    at g (14a7-fp829cxt.js:52:7049)
+    at ay (0hpq.hkdb3u-~.js:1:63845)
+    at oJ (0hpq.hkdb3u-~.js:1:84102)
+    at iu (0hpq.hkdb3u-~.js:1:95704)
+    at sd (0hpq.hkdb3u-~.js:1:138944)
+    at 0hpq.hkdb3u-~.js:1:133830
+    at se (0hpq.hkdb3u-~.js:1:133931)
+c @ 0pqt~8bl3ukh4.js:1
+d @ 14a7-fp829cxt.js:36
+c @ 14a7-fp829cxt.js:36
+g @ 14a7-fp829cxt.js:52
+ay @ 0hpq.hkdb3u-~.js:1
+oJ @ 0hpq.hkdb3u-~.js:1
+iu @ 0hpq.hkdb3u-~.js:1
+sd @ 0hpq.hkdb3u-~.js:1
+(anonymous) @ 0hpq.hkdb3u-~.js:1
+se @ 0hpq.hkdb3u-~.js:1
+s$ @ 0hpq.hkdb3u-~.js:1
+O @ 0hpq.hkdb3u-~.js:1
+postMessage
+i @ 0hpq.hkdb3u-~.js:1
+O @ 0hpq.hkdb3u-~.js:1
+postMessage
+i @ 0hpq.hkdb3u-~.js:1
+n.unstable_scheduleCallback @ 0hpq.hkdb3u-~.js:1
+sH @ 0hpq.hkdb3u-~.js:1
+sV @ 0hpq.hkdb3u-~.js:1
+(anonymous) @ 0hpq.hkdb3u-~.js:1
+PendingScript
+(anonymous) @ turbopack-0rzqr3ei67x~d.js:1
+loadChunkCached @ turbopack-0rzqr3ei67x~d.js:1
+M @ turbopack-0rzqr3ei67x~d.js:1
+S.L @ turbopack-0rzqr3ei67x~d.js:1
+s @ 0c7h~x4_chf35.js:1
+(anonymous) @ 0c7h~x4_chf35.js:1
+t @ 0c7h~x4_chf35.js:1
+Promise.then
+es @ 0c7h~x4_chf35.js:1
+(anonymous) @ 0c7h~x4_chf35.js:1
+Promise.then
+r.createFromFetch @ 0c7h~x4_chf35.js:1
+T @ 0c7h~x4_chf35.js:1
+await in T
+R @ 0c7h~x4_chf35.js:1
+R @ 0c7h~x4_chf35.js:1
+(anonymous) @ 0c7h~x4_chf35.js:1
+_ @ 0c7h~x4_chf35.js:1
+s @ 0c7h~x4_chf35.js:1
+s @ 0c7h~x4_chf35.js:2
+action @ 0c7h~x4_chf35.js:2
+_ @ 0c7h~x4_chf35.js:2
+(anonymous) @ 0c7h~x4_chf35.js:2
+dispatch @ 0c7h~x4_chf35.js:2
+i @ 0c7h~x4_chf35.js:1
+c @ 0c7h~x4_chf35.js:1
+S @ 0c7h~x4_chf35.js:2
+(anonymous) @ 0c7h~x4_chf35.js:2
+I @ 0gscbv2oo_ix7.js:1
+replace @ 0c7h~x4_chf35.js:2
+(anonymous) @ 0gscbv2oo_ix7.js:1
+I @ 0gscbv2oo_ix7.js:1
+(anonymous) @ 0gscbv2oo_ix7.js:1
+iv @ 0hpq.hkdb3u-~.js:1
+up @ 0hpq.hkdb3u-~.js:1
+ud @ 0hpq.hkdb3u-~.js:1
+up @ 0hpq.hkdb3u-~.js:1
+sx @ 0hpq.hkdb3u-~.js:1
+(anonymous) @ 0hpq.hkdb3u-~.js:1
+O @ 0hpq.hkdb3u-~.js:1
+postMessage
+i @ 0hpq.hkdb3u-~.js:1
+O @ 0hpq.hkdb3u-~.js:1
+postMessage
+i @ 0hpq.hkdb3u-~.js:1
+O @ 0hpq.hkdb3u-~.js:1
+postMessage
+i @ 0hpq.hkdb3u-~.js:1
+n.unstable_scheduleCallback @ 0hpq.hkdb3u-~.js:1
+sH @ 0hpq.hkdb3u-~.js:1
+sV @ 0hpq.hkdb3u-~.js:1
+(anonymous) @ 0hpq.hkdb3u-~.js:1
+
+потом после перезагрузки:
+clients:1  GET https://loyalty-aziz.vercel.app/admin/clients? 500 (Internal Server Error)
+contentScript.js:2 i18next: languageChanged en-US
+contentScript.js:2 i18next: initialized {debug: true, initImmediate: true, ns: Array(1), defaultNS: Array(1), fallbackLng: Array(1), …}
+The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+
+2026-05-26 11:03:46.501 [error] TypeError: Cannot read properties of null (reading 'useState')
+    at p (.next/server/chunks/ssr/_0zpa5l.._.js:34:77355) {
+  digest: '349621765'
+}

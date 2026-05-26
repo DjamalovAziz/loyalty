@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { useTheme } from '@/app/providers'
+import { useState, useEffect } from 'react'
 
 const nav = [
   {
@@ -46,86 +47,104 @@ const nav = [
 ]
 
 export function AdminSidebar({ 
-  user, 
-  isMobileMenuOpen, 
-  setIsMobileMenuOpen 
+  user,
 }: { 
   user: { name?: string; email?: string; role: string };
-  isMobileMenuOpen: boolean;
-  setIsMobileMenuOpen: (open: boolean) => void;
 }) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   return (
-    <aside className={`fixed left-0 top-0 h-full w-56 bg-white border-r border-gray-100 flex flex-col z-20 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static`}>
-      <div className="flex items-center justify-between p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+    <>
+      <aside className={`fixed left-0 top-0 h-full w-56 bg-white border-r border-gray-100 flex flex-col z-20 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static`}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="font-semibold text-sm text-gray-900">Лояльность</span>
           </div>
-          <span className="font-semibold text-sm text-gray-900">Лояльность</span>
-        </div>
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="p-1 rounded-lg hover:bg-gray-100 md:hidden"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+</div>
+
+          <nav className="flex-1 p-3 space-y-0.5">
+            {nav.map((item) => {
+              const active = pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    active
+                      ? 'bg-indigo-50 text-indigo-700 font-medium'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <span className={active ? 'text-indigo-600' : 'text-gray-400'}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          <div className="p-3 border-t border-gray-100">
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {theme === 'light' ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m8.66-9.66l-.71.71M5.05 5.05l-.71.71M21 12h-1M4 12H3m15.36 6.36l-.71-.71M6.34 17.66l.71-.71M16.95 7.05A7.02 7.02 0 115.05 16.95 7 7 0 0016.95 7.05z" />
+                )}
+              </svg>
+              {theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+            </button>
+            <div className="px-3 py-2 mt-1">
+              <p className="text-xs font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Выйти
+            </button>
+          </div>
+        </aside>
+
         <button
-          onClick={() => setIsMobileMenuOpen(false)}
-          className="p-1 rounded-lg hover:bg-gray-100 md:hidden"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="fixed left-4 top-4 z-50 p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 md:hidden transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-      </div>
-
-      <nav className="flex-1 p-3 space-y-0.5">
-        {nav.map((item) => {
-          const active = pathname.startsWith(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                active
-                  ? 'bg-indigo-50 text-indigo-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              <span className={active ? 'text-indigo-600' : 'text-gray-400'}>{item.icon}</span>
-              {item.label}
-            </Link>
-          )
-        })}
-      </nav>
-
-      <div className="p-3 border-t border-gray-100">
-        <button
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            {theme === 'light' ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m8.66-9.66l-.71.71M5.05 5.05l-.71.71M21 12h-1M4 12H3m15.36 6.36l-.71-.71M6.34 17.66l.71-.71M16.95 7.05A7.02 7.02 0 115.05 16.95 7 7 0 0016.95 7.05z" />
-            )}
-          </svg>
-          {theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
-        </button>
-        <div className="px-3 py-2 mt-1">
-          <p className="text-xs font-medium text-gray-900 truncate">{user.name}</p>
-          <p className="text-xs text-gray-400 truncate">{user.email}</p>
-        </div>
-        <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Выйти
-        </button>
-      </div>
-    </aside>
-  )
-}
+      </>
+    )
+  }
