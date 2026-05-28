@@ -15,7 +15,8 @@ export function ClientModal({ client, onClose, onSaved }: Props) {
   const [email, setEmail] = useState((client as any)?.email || '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [telegramLink, setTelegramLink] = useState('')
+  const [telegramDeepLink, setTelegramDeepLink] = useState('')
+  const [showTelegramQR, setShowTelegramQR] = useState(false)
 
   const [opType, setOpType] = useState<'CREDIT' | 'DEBIT'>('CREDIT')
   const [opAmount, setOpAmount] = useState('')
@@ -30,7 +31,7 @@ export function ClientModal({ client, onClose, onSaved }: Props) {
   async function handleSave() {
     setSaving(true)
     setError('')
-    setTelegramLink('')
+    setTelegramDeepLink('')
     const method = client ? 'PUT' : 'POST'
     const url = client ? `/api/clients/${client.id}` : '/api/clients'
     const res = await fetch(url, {
@@ -45,9 +46,17 @@ export function ClientModal({ client, onClose, onSaved }: Props) {
       return
     }
     const data = await res.json()
-    if (data.telegramLink) setTelegramLink(data.telegramLink)
-    if (!client) return // оставаться открытым для показа telegram ссылки
-    onSaved()
+    if (data.telegramDeepLink) {
+      setTelegramDeepLink(data.telegramDeepLink)
+      // Stay open to show Telegram QR for new clients
+      if (!client) {
+        setShowTelegramQR(true)
+        return
+      }
+    }
+    if (client) {
+      onSaved()
+    }
   }
 
   async function handleOperation() {
@@ -124,8 +133,8 @@ export function ClientModal({ client, onClose, onSaved }: Props) {
             {saving ? 'Сохранение...' : client ? 'Сохранить изменения' : 'Создать клиента'}
           </button>
 
-          {/* Telegram ссылка после создания */}
-          {telegramLink && (
+          {/* Telegram QR после создания */}
+          {telegramDeepLink && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
@@ -134,28 +143,80 @@ export function ClientModal({ client, onClose, onSaved }: Props) {
                 <p className="text-sm font-medium text-blue-800">Привязка Telegram</p>
               </div>
               <p className="text-xs text-blue-600 mb-3">
-                Отправьте клиенту эту ссылку. После перехода бот автоматически привяжется и будет слать уведомления.
+                Нажмите кнопку ниже, чтобы показать QR-код для сканирования
               </p>
-              <div className="flex gap-2">
-                <input readOnly value={telegramLink}
-                  className="flex-1 px-2 py-1.5 bg-white border border-blue-200 rounded-lg text-xs text-gray-600 truncate" />
-                <button onClick={() => copyLink(telegramLink)}
-                  className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">
-                  Копировать
-                </button>
-              </div>
-              <button onClick={onSaved}
-                className="w-full mt-3 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm hover:bg-blue-100 transition-colors">
-                Готово
+              <button onClick={() => setShowTelegramQR(true)}
+                className="w-full border border-blue-200 text-blue-700 py-2 rounded-lg text-sm hover:bg-blue-100 transition-colors">
+                Показать QR-код
               </button>
             </div>
           )}
 
           {/* Операции — только для существующего клиента */}
-          {client && !telegramLink && (
+          {client && !telegramDeepLink && (
             <>
               <div className="flex items-center gap-2 pt-2">
                 <hr className="flex-1 border-gray-100" />
+                <span className="text-xs text-gray-400">Операции с бонусами</span>
+                <hr className="flex-1 border-gray-100" />
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-gray-500">Текущий баланс</span>
+                  <span className="text-lg font-bold text-gray-900">{currentBalance.toLocaleString('ru')} бонусов</span>
+                </div>
+
+                <div className="flex gap-2 mb-3">
+                  {(['CREDIT', 'DEBIT'] as const).map((t) => (
+                    <button key={t} onClick={() => setOpType(t)}
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${opType === t
+                        ? t === 'CREDIT' ? 'bg-emerald-600 text-white' : 'bg-red-500 text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}>
+                      {t === 'CREDIT' ? '+ Начислить' : '− Списать'}
+                    </button>
+                  ))}
+                </div>
+
+                <input type="number" value={opAmount} onChange={(e) => setOpAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  placeholder="Сумма (целое число)" min="1" />
+                <input value={opComment} onChange={(e) => setOpComment(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  placeholder="Комментарий (необязательно)" />
+
+                {opError && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-lg mb-2">{opError}</div>}
+                {opSuccess && <div className="bg-emerald-50 text-emerald-700 text-sm px-3 py-2 rounded-lg mb-2">{opSuccess}</div>}
+
+                <button onClick={handleOperation} disabled={opLoading || !opAmount}
+                  className="w-full bg-gray-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors">
+                  {opLoading ? 'Обработка...' : 'Применить'}
+                </button>
+              </div>
+
+              <button onClick={() => setShowQR(true)}
+                className="w-full border border-gray-200 text-gray-600 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 001-1v2a1 1 0 001 1zM12 0h2a1 1 0 001-1V5a1 1 0 001-1H12v4zm0 0h2a1 1 0 001-1V5a1 1 0 001-1H12v4zm0 4h2a1 1 0 001-1V5a1 1 0 001-1H12v4z" />
+                </svg>
+                Показать QR-код
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {showTelegramQR && telegramDeepLink && (
+        <QRModal data={telegramDeepLink} label="Привязка Telegram" subtitle="Сканируйте QR-код для привязки клиента к Telegram-боту" onClose={() => setShowTelegramQR(false)} />
+      )}
+
+      {showQR && client && (
+        <QRModal client={{ ...client, balance: currentBalance }} onClose={() => setShowQR(false)} />
+      )}
+    </div>
+  )
+}flex-1 border-gray-100" />
                 <span className="text-xs text-gray-400">Операции с бонусами</span>
                 <hr className="flex-1 border-gray-100" />
               </div>

@@ -3,16 +3,20 @@ import { useEffect, useRef, useState } from 'react'
 import type { ClientRow } from '@/types'
 
 interface Props {
-  client: ClientRow
+  client?: ClientRow
+  data?: string
+  label?: string
+  subtitle?: string
   onClose: () => void
 }
 
-export function QRModal({ client, onClose }: Props) {
+export function QRModal({ client, data, label, subtitle, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
 
+  // Determine what to encode in the QR code
   const url = typeof window !== 'undefined'
-    ? `${window.location.origin}/client/${client.qrToken}`
+    ? (data ?? `${window.location.origin}/client/${client?.qrToken ?? ''}`)
     : ''
 
   useEffect(() => {
@@ -31,7 +35,7 @@ export function QRModal({ client, onClose }: Props) {
     if (!canvas) return
     const a = document.createElement('a')
     a.href = canvas.toDataURL('image/png')
-    a.download = `qr-${client.fullName.replace(/\s+/g, '-')}.png`
+    a.download = `qr-${(client?.fullName ?? 'telegram').replace(/\s+/g, '-')}.png`
     a.click()
   }
 
@@ -40,10 +44,11 @@ export function QRModal({ client, onClose }: Props) {
       const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 })
       const win = window.open('', '_blank')!
       win.document.write(`
-        <html><head><title>QR — ${client.fullName}</title></head>
+        <html><head><title>QR — ${label ?? client?.fullName ?? 'Telegram'}</title></head>
         <body style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;gap:16px;">
-          <h2 style="font-size:18px;color:#1a1a1a;margin:0">${client.fullName}</h2>
-          <p style="font-size:14px;color:#666;margin:0">Баланс: ${client.balance.toLocaleString('ru')} бонусов</p>
+          <h2 style="font-size:18px;color:#1a1a1a;margin:0">${label ?? client?.fullName ?? 'Telegram'}</h2>
+          {subtitle ? `<p style="font-size:14px;color:#666;margin:0">${subtitle}</p>` : ''}
+          {client && client.balance !== undefined ? `<p style="font-size:14px;color:#666;margin:0">Баланс: ${client.balance.toLocaleString('ru')} бонусов</p>` : ''}
           <img src="${dataUrl}" style="width:256px;height:256px" />
           <p style="font-size:11px;color:#aaa;margin:0">${url}</p>
         </body></html>`)
@@ -56,7 +61,9 @@ export function QRModal({ client, onClose }: Props) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs text-center">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900 text-sm">QR-код клиента</h3>
+          <h3 className="font-semibold text-gray-900 text-sm">
+            {label ?? (client ? 'QR-код клиента' : 'QR-код для Telegram')}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -64,8 +71,12 @@ export function QRModal({ client, onClose }: Props) {
           </button>
         </div>
 
-        <p className="text-sm font-medium text-gray-900 mb-1">{client.fullName}</p>
-        <p className="text-xs text-gray-400 mb-4">{client.phone}</p>
+        {client && !data ? (
+          <>
+            <p className="text-sm font-medium text-gray-900 mb-1">{client.fullName}</p>
+            <p className="text-xs text-gray-400 mb-4">{client.phone}</p>
+          </>
+        ) : null}
 
         <div className="flex justify-center mb-4">
           <canvas ref={canvasRef} className={`rounded-lg transition-opacity ${ready ? 'opacity-100' : 'opacity-0'}`} />

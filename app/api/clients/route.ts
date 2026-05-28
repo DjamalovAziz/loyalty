@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       await sendEmail(client.email, subject, html)
     }
 
-    return NextResponse.json({ ...client, telegramLink: tgLink }, { status: 201 })
+    return NextResponse.json({ ...client, telegramDeepLink: tgLink }, { status: 201 })
   } catch (e: any) {
     if (e.code === 'P2002') {
       return NextResponse.json({ error: 'Телефон уже зарегистрирован' }, { status: 409 })

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     })
     await sendEmail(user.email, subject, html)
 
-    return NextResponse.json({ ...user, telegramLink: tgLink }, { status: 201 })
+    return NextResponse.json({ ...user, telegramDeepLink: tgLink }, { status: 201 })
   } catch (e: any) {
     if (e.code === 'P2002') {
       return NextResponse.json({ error: 'Email уже используется' }, { status: 409 })
