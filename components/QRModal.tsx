@@ -39,23 +39,23 @@ export function QRModal({ client, data, label, subtitle, onClose }: Props) {
     a.click()
   }
 
-  function downloadPDF() {
-    import('qrcode').then(async (QRCode) => {
-      const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 })
-      const win = window.open('', '_blank')!
-      win.document.write(`
-        <html><head><title>QR — ${label ?? client?.fullName ?? 'Telegram'}</title></head>
-        <body style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;gap:16px;">
-          <h2 style="font-size:18px;color:#1a1a1a;margin:0">${label ?? client?.fullName ?? 'Telegram'}</h2>
-          {subtitle ? `<p style="font-size:14px;color:#666;margin:0">${subtitle}</p>` : ''}
-          {client && client.balance !== undefined ? `<p style="font-size:14px;color:#666;margin:0">Баланс: ${client.balance.toLocaleString('ru')} бонусов</p>` : ''}
-          <img src="${dataUrl}" style="width:256px;height:256px" />
-          <p style="font-size:11px;color:#aaa;margin:0">${url}</p>
-        </body></html>`)
-      win.document.close()
-      setTimeout(() => win.print(), 500)
-    })
-  }
+   function downloadPDF() {
+     import('qrcode').then(async (QRCode) => {
+       const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 })
+       const win = window.open('', '_blank')!
+       win.document.write(`
+         <html><head><title>QR — ${label ?? client?.fullName ?? 'Telegram'}</title></head>
+         <body style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;gap:16px;">
+           <h2 style="font-size:18px;color:#1a1a1a;margin:0">${label ?? client?.fullName ?? 'Telegram'}</h2>
+           ${subtitle ? `<p style="font-size:14px;color:#666;margin:0">${subtitle}</p>` : ''}
+           ${client && client.balance !== undefined ? `<p style="font-size:14px;color:#666;margin:0">Баланс: ${client.balance.toLocaleString('ru')} бонусов</p>` : ''}
+           <img src="${dataUrl}" style="width:256px;height:256px" />
+           <p style="font-size:11px;color:#aaa;margin:0">${url}</p>
+         </body></html>`)
+       win.document.close()
+       setTimeout(() => win.print(), 500)
+     })
+   }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
