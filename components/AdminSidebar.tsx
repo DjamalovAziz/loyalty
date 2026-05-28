@@ -48,12 +48,15 @@ const nav = [
 
 export function AdminSidebar({ 
   user,
+  isMobileMenuOpen,
+  setIsMobileMenuOpen,
 }: { 
   user: { name?: string; email?: string; role: string };
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
 }) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleResize = () => {
