@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import type { ClientRow, TransactionRow } from '@/types'
 
@@ -9,10 +9,18 @@ interface ClientData extends ClientRow {
 
 export default function CashierPage() {
   const { data: session } = useSession()
+  
+  // Search by ID/token/QR (existing functionality)
   const [manualId, setManualId] = useState('')
   const [client, setClient] = useState<ClientData | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [searching, setSearching] = useState(false)
+
+  // Admin-like search by name/phone (new functionality)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [clientsList, setClientsList] = useState<ClientRow[]>([])
+  const [clientsLoading, setClientsLoading] = useState(false)
+  const [selectedClientFromList, setSelectedClientFromList] = useState<ClientRow | null>(null)
 
   const [opType, setOpType] = useState<'CREDIT' | 'DEBIT'>('DEBIT')
   const [amount, setAmount] = useState('')
@@ -26,10 +34,35 @@ export default function CashierPage() {
   const videoRef = useRef<HTMLDivElement>(null)
   const [videoElementReady, setVideoElementReady] = useState(false)
 
+  // Search clients by name/phone (like admin)
+  const searchClients = useCallback(async () => {
+    if (!searchTerm.trim()) {
+      setClientsList([])
+      return
+    }
+    setClientsLoading(true)
+    try {
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(searchTerm)}`)
+      const data = await res.json()
+      setClientsList(data)
+    } catch (error) {
+      console.error('Error searching clients:', error)
+      setClientsList([])
+    } finally {
+      setClientsLoading(false)
+    }
+  }, [searchTerm])
+
+  useEffect(() => {
+    const timer = setTimeout(searchClients, 300)
+    return () => clearTimeout(timer)
+  }, [searchClients, searchTerm])
+
   async function findClientByToken(token: string) {
     setSearching(true)
     setNotFound(false)
     setClient(null)
+    setSelectedClientFromList(null) // Clear list selection when using direct lookup
     try {
       const res = await fetch(`/api/clients/token/${token}`)
       if (!res.ok) { setNotFound(true); return }
@@ -43,6 +76,7 @@ export default function CashierPage() {
     setSearching(true)
     setNotFound(false)
     setClient(null)
+    setSelectedClientFromList(null) // Clear list selection when using direct lookup
     try {
       const res = await fetch(`/api/clients/${id}`)
       if (!res.ok) { setNotFound(true); return }
@@ -67,6 +101,7 @@ export default function CashierPage() {
     setScanning(true)
     setClient(null)
     setNotFound(false)
+    setSelectedClientFromList(null) // Clear list selection when scanning
   }
 
   useEffect(() => {
@@ -122,8 +157,12 @@ export default function CashierPage() {
     }
   }, [scanning, videoElementReady])
 
+  // Compute the client to display (either from list or direct lookup)
+  const displayClient = selectedClientFromList || client
+
   async function handleOperation() {
-    if (!client) return
+    // Use displayClient (which is either selectedClientFromList or client)
+    if (!displayClient) return
     const amt = parseInt(amount)
     if (!amt || amt <= 0) { setOpError('Введите корректную сумму'); return }
     setOpLoading(true)
@@ -132,7 +171,7 @@ export default function CashierPage() {
     const res = await fetch('/api/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: client.id, type: opType, amount: amt, comment }),
+      body: JSON.stringify({ clientId: displayClient.id, type: opType, amount: amt, comment }),
     })
     setOpLoading(false)
     if (!res.ok) {
@@ -141,7 +180,14 @@ export default function CashierPage() {
       return
     }
     const tx = await res.json()
-    setClient((prev) => prev ? { ...prev, balance: tx.balanceAfter } : prev)
+    // Update the client in state if it matches
+    if (client && client.id === displayClient.id) {
+      setClient(prev => prev ? { ...prev, balance: tx.balanceAfter } : prev)
+    }
+    // Update the client in the list if it matches
+    setClientsList(prev => prev.map(c => 
+      c.id === displayClient.id ? { ...c, balance: tx.balanceAfter } : c
+    ))
     setAmount('')
     setComment('')
     setOpSuccess(opType === 'CREDIT' ? `Начислено ${amt} бонусов` : `Списано ${amt} бонусов`)
@@ -156,6 +202,7 @@ export default function CashierPage() {
     setOpSuccess('')
     setAmount('')
     setComment('')
+    setSelectedClientFromList(null)
   }
 
   return (
@@ -170,6 +217,9 @@ export default function CashierPage() {
           </div>
           <span className="font-semibold text-sm text-gray-900">Касса</span>
         </div>
+        <button onClick={() => signOut()} className="text-gray-400 hover:text-gray-700">
+          Выход
+        </button>
       </div>
 
       {/* Main content */}
@@ -178,38 +228,113 @@ export default function CashierPage() {
           <div className="px-6 py-4 space-y-6">
             {/* Search section */}
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                <div className="relative w-full sm:w-64">
-                  <input
-                    type="text"
-                    value={manualId}
-                    onChange={(e) => setManualId(e.target.value)}
-                    placeholder="Введите ID клиента или сканируйте QR-код"
-                    className="w-full px-4 py-3 pl-10 pr-4 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M14.5 8a6.5 6.5 0 10-13 0" />
-                    </svg>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Direct search (ID/token/QR) */}
+                <div className="space-y-3">
+                  <div className="relative w-full">
+                    <input
+                      type="text"
+                      value={manualId}
+                      onChange={(e) => setManualId(e.target.value)}
+                      placeholder="Введите ID клиента или сканируйте QR-код"
+                      className="w-full px-4 py-3 pl-10 pr-4 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M14.5 8a6.5 6.5 0 10-13 0" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:gap-3 w-full sm:w-auto">
+                    <button
+                      onClick={handleManualSearch}
+                      disabled={searching || !manualId.trim()}
+                      className="w-full flex-1 sm:w-auto px-4 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    >
+                      {searching ? 'Поиск...' : 'Найти клиента'}
+                    </button>
+                    <button
+                      onClick={startScanner}
+                      disabled={searching || scanning}
+                      className="w-full flex-1 sm:w-auto px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      {scanning ? 'Остановка сканера' : 'Сканировать QR-код'}
+                    </button>
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:gap-3 w-full sm:w-auto">
+
+                {/* Admin-like search by name/phone */}
+                <div className="space-y-3">
+                  <div className="relative w-full">
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Поиск по имени или телефону"
+                      className="w-full px-4 py-3 pl-10 pr-4 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M14.5 8a6.5 6.5 0 10-13 0" />
+                      </svg>
+                    </div>
+                  </div>
                   <button
-                    onClick={handleManualSearch}
-                    disabled={searching || !manualId.trim()}
-                    className="w-full flex-1 sm:w-auto px-4 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    onClick={searchClients}
+                    disabled={clientsLoading || !searchTerm.trim()}
+                    className="w-full px-4 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    {searching ? 'Поиск...' : 'Найти клиента'}
-                  </button>
-                  <button
-                    onClick={startScanner}
-                    disabled={searching || scanning}
-                    className="w-full flex-1 sm:w-auto px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    {scanning ? 'Остановка сканера' : 'Сканировать QR-код'}
+                    {clientsLoading ? 'Поиск...' : 'Найти клиентов'}
                   </button>
                 </div>
               </div>
+
+              {/* Clients list (admin-like) */}
+              {clientsLoading && !clientsList.length && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-500">Поиск клиентов...</p>
+                </div>
+              )}
+              {!clientsLoading && clientsList.length === 0 && searchTerm.trim() && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-400">Клиенты не найдены</p>
+                </div>
+              )}
+              {!clientsLoading && clientsList.length > 0 && (
+                <div className="bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="px-4 py-3 border-b border-gray-100 font-medium text-gray-500 text-sm">
+                    Найдено клиентов: {clientsList.length}
+                  </div>
+                  <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+                    {clientsList.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedClientFromList(c);
+                          setClient(null); // Clear direct lookup client
+                          setNotFound(false);
+                          setSearching(false);
+                        }}
+                        className={`flex items-center px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors ${
+                          selectedClientFromList && selectedClientFromList.id === c.id
+                            ? 'bg-indigo-50'
+                            : ''
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{c.fullName}</p>
+                          <p className="text-xs text-gray-500">{c.phone}</p>
+                        </div>
+                        <div className="text-right text-sm font-mono">
+                          <span className={c.balance > 0 ? 'text-emerald-600' : 'text-gray-400'}>
+                            {c.balance.toLocaleString('ru')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* QR Scanner Video */}
               {scanning && (
@@ -233,17 +358,17 @@ export default function CashierPage() {
             </div>
 
             {/* Client info and operations */}
-            {client && !notFound && !searching && (
+            {displayClient && !notFound && !searching && (
               <div className="space-y-6">
                 {/* Client header */}
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">{client.fullName}</h2>
-                    <p className="text-sm text-gray-500">Телефон: {client.phone}</p>
+                    <h2 className="text-lg font-semibold text-gray-900">{displayClient.fullName}</h2>
+                    <p className="text-sm text-gray-500">Телефон: {displayClient.phone}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-600">ID клиента:</p>
-                    <p className="font-mono text-sm">{client.id}</p>
+                    <p className="font-mono text-sm">{displayClient.id}</p>
                   </div>
                 </div>
 
@@ -251,7 +376,7 @@ export default function CashierPage() {
                 <div className="text-center py-4">
                   <p className="text-sm text-gray-500">Текущий баланс</p>
                   <p className="text-3xl font-bold text-indigo-600">
-                    {client.balance.toLocaleString('ru')} бонусов
+                    {displayClient.balance.toLocaleString('ru')} бонусов
                   </p>
                 </div>
 
