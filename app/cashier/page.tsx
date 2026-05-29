@@ -24,6 +24,7 @@ export default function CashierPage() {
   const [scanning, setScanning] = useState(false)
   const scannerRef = useRef<any>(null)
   const videoRef = useRef<HTMLDivElement>(null)
+  const [videoElementReady, setVideoElementReady] = useState(false)
 
   async function findClientByToken(token: string) {
     setSearching(true)
@@ -69,7 +70,25 @@ export default function CashierPage() {
   }
 
   useEffect(() => {
-    if (!scanning || !videoRef.current) return
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => { })
+      }
+    }
+  }, [])
+
+  // Handle scanner initialization when we want to scan and have the video element
+  useEffect(() => {
+    if (!scanning || !videoElementReady) {
+      // If we're not scanning or don't have the video element ready, stop any existing scanner
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => { })
+        scannerRef.current = null
+      }
+      return
+    }
+
+    // We're scanning and have the video element - start the scanner
     let html5QrCode: any
 
     import('html5-qrcode').then(({ Html5Qrcode }) => {
@@ -81,6 +100,7 @@ export default function CashierPage() {
         (decodedText: string) => {
           html5QrCode.stop().catch(() => { })
           setScanning(false)
+          setVideoElementReady(false)
           const match = decodedText.match(/\/client\/([^/?]+)/)
           if (match) {
             findClientByToken(match[1])
@@ -89,7 +109,10 @@ export default function CashierPage() {
           }
         },
         () => { }
-      ).catch(() => setScanning(false))
+      ).catch(() => {
+        setScanning(false)
+        setVideoElementReady(false)
+      })
     })
 
     return () => {
@@ -97,7 +120,7 @@ export default function CashierPage() {
         scannerRef.current.stop().catch(() => { })
       }
     }
-  }, [scanning])
+  }, [scanning, videoElementReady])
 
   async function handleOperation() {
     if (!client) return
@@ -189,10 +212,13 @@ export default function CashierPage() {
               </div>
 
               {/* QR Scanner Video */}
-              {scanning && videoRef.current && (
+              {scanning && (
                 <div className="mt-4">
                   <div
-                    ref={videoRef}
+                    ref={(elem) => {
+                      videoRef.current = elem
+                      setVideoElementReady(!!elem)
+                    }}
                     id="qr-reader"
                     className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500"
                   >
