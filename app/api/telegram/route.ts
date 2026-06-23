@@ -12,19 +12,59 @@ export async function POST(req: NextRequest) {
         const text: string = message.text || ''
         const firstName = message.from?.first_name || ''
 
+        // Handle phone verification flow (sent via contact or text)
+        const contactPhone = message.contact?.phone_number
+        if (contactPhone || (text && /^\+?\d+$/.test(text.replace(/\s+/g, '')))) {
+            const phone = contactPhone || text.replace(/\s+/g, '')
+            
+            // Find pending verification session
+            const session = await prisma.telegramVerification.findFirst({
+                where: { chatId },
+            })
+            
+            if (session) {
+                // Find client by verifyToken from session
+                const client = await prisma.client.findFirst({
+                    where: { verifyToken: session.verifyToken },
+                })
+                if (client) {
+                    // Verify phone matches
+                    const normalizePhone = (p: string) => p.replace(/\D/g, '').replace(/^998/, '+998')
+                    const clientPhone = normalizePhone(client.phone)
+                    const userPhone = normalizePhone(phone)
+                    
+                    if (clientPhone === userPhone || client.phone === phone) {
+                        await prisma.client.update({
+                            where: { id: client.id },
+                            data: { telegramChatId: chatId, verifyToken: null, isVerified: true },
+                        })
+                        await prisma.telegramVerification.delete({ where: { id: session.id } })
+                        const clientUrl = `${process.env.NEXTAUTH_URL}/client/${client.qrToken}`
+                        await sendTelegram(chatId, `✅ <b>Привязка успешна!</b>\n\nТеперь вы будете получать уведомления о бонусах, ${client.fullName}!\n\n🔗 <a href="${clientUrl}">Перейти в личный кабинет</a>`)
+                        return NextResponse.json({ ok: true })
+                    } else {
+                        await sendTelegram(chatId, `❌ Номер телефона не совпадает. Проверьте номер и попробуйте снова.\n\nВаш телефон в системе: ${client.phone}`)
+                        return NextResponse.json({ ok: true })
+                    }
+                }
+            }
+            
+            await sendTelegram(chatId, '❌ Не найден процесс верификации. Попробуйте снова или обратитесь к администратору.')
+            return NextResponse.json({ ok: true })
+        }
+
         if (text.startsWith('/start ')) {
             const token = text.replace('/start ', '').trim()
-
+            
             const client = await prisma.client.findFirst({
                 where: { verifyToken: token },
             })
             if (client) {
-                await prisma.client.update({
-                    where: { id: client.id },
-                    data: { telegramChatId: chatId, verifyToken: null, isVerified: true },
+                // Create pending verification session
+                await prisma.telegramVerification.create({
+                    data: { chatId, verifyToken: token },
                 })
-                const clientUrl = `${process.env.NEXTAUTH_URL}/client/${client.qrToken}`
-                await sendTelegram(chatId, `✅ <b>Привязка успешна!</b>\n\nТеперь вы будете получать уведомления о бонусах, ${client.fullName}!\n\n🔗 <a href="${clientUrl}">Перейти в личный кабинет</a>`)
+                await sendTelegram(chatId, `👋 Привет!\n\nДля подтверждения привязки отправьте свой номер телефона.\n\n📱 Ваш номер в системе: ${client.phone}\n\nОтправьте его или нажмите кнопку "Отправить номер" после сканирования QR-кода.`)
                 return NextResponse.json({ ok: true })
             }
 
