@@ -4,31 +4,22 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
+  const existingUser = await prisma.user.findFirst()
+  if (existingUser) {
+    console.log('Пользователи уже существуют, пропускаем seed.')
+    return
+  }
+
   const hash = await bcrypt.hash('admin123', 12)
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@loyalty.local' },
-    update: {},
-    create: {
+  await prisma.user.create({
+    data: {
       email: 'admin@loyalty.local',
       name: 'Администратор',
       passwordHash: hash,
       role: 'ADMIN',
     },
   })
-  console.log('✅ Admin created:', admin.email)
-
-  const cashierHash = await bcrypt.hash('cashier123', 12)
-  const cashier = await prisma.user.upsert({
-    where: { email: 'cashier@loyalty.local' },
-    update: {},
-    create: {
-      email: 'cashier@loyalty.local',
-      name: 'Кассир #1',
-      passwordHash: cashierHash,
-      role: 'CASHIER',
-    },
-  })
-  console.log('✅ Cashier created:', cashier.email)
+  console.log('✅ Admin created: admin@loyalty.local / admin123')
 }
 
 main()

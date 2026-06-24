@@ -48,7 +48,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="admin@loyalty.local"
+              placeholder="admin@example.com"
               required
             />
           </div>
@@ -76,6 +76,13 @@ export default function LoginPage() {
             {loading ? 'Вход...' : 'Войти'}
           </button>
         </form>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Первый запуск?{' '}
+          <button onClick={() => router.push('/register')} className="text-indigo-600 hover:text-indigo-800 font-medium">
+            Зарегистрироваться
+          </button>
+        </p>
       </div>
     </div>
   )
