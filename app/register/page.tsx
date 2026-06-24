@@ -41,7 +41,17 @@ export default function RegisterPage() {
             </svg>
           </div>
           <h1 className="text-xl font-semibold text-gray-900">Регистрация администратора</h1>
-          <p className="text-sm text-gray-500 mt-1">Доступна только при первом запуске</p>
+          <p className="text-sm text-gray-500 mt-1">Или зарегистрируйтесь через Telegram-бота</p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <p className="text-sm text-blue-800 mb-2 font-medium">Через Telegram бота:</p>
+          <p className="text-xs text-blue-700 mb-3">
+            1. Найдите бота <strong>@{process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'loyaltybotbotbot'}</strong> в Telegram<br/>
+            2. Отправьте команду <code>/start</code><br/>
+            3. Выберите "Регистрация персонала"<br/>
+            4. Следуйте инструкциям бота
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
