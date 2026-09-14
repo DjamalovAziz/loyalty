@@ -1,0 +1,40 @@
+"use client";
+
+import Link from "next/link";
+import { api } from "~/trpc/react";
+
+export default function DashboardPage() {
+  const { data, isLoading } = api.loyalty.overview.useQuery();
+
+  return (
+    <main className="mx-auto max-w-4xl px-4 py-10">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Link href="/dashboard/loyalty" className="text-sm underline">
+          Manage tiers & rules
+        </Link>
+      </div>
+
+      {isLoading || !data ? (
+        <p className="text-gray-500">Loading...</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <Stat label="Clients" value={data.clientCount} />
+          <Stat label="Staff" value={data.staffCount} />
+          <Stat label="Transactions" value={data.txCount} />
+          <Stat label="Points issued" value={data.pointsIssued} />
+          <Stat label="Points redeemed" value={data.pointsRedeemed} />
+        </div>
+      )}
+    </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-white p-4">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="text-2xl font-semibold">{value}</p>
+    </div>
+  );
+}

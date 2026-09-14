@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pgbouncer transaction pooler (port 6543)
+  directUrl = env("DIRECT_URL")   // direct connection for migrations (port 5432)
+}
+
+enum Role {
+  SUPER_ADMIN
+  BUSINESS_OWNER
+  STAFF
+  CLIENT
+}
+
+enum TriggerType {
+  VISIT
+  PURCHASE
+}
+
+enum TransactionType {
+  EARN
+  REDEEM
+}
+
+model Business {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+  ownerId   String   @unique
+  owner     User     @relation("OwnedBusiness", fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+
+  staff        User[]        @relation("BusinessStaff")
+  clients      Client[]
+  tiers        LoyaltyTier[]
+  rules        LoyaltyRule[]
+  transactions Transaction[]
+}
+
+model User {
+  id           String  @id @default(uuid())
+  name         String
+  phoneNumber  String  @unique
+  passwordHash String?
+  pin          String?
+  role         Role
+  verified     Boolean @default(false)
+  telegramChatId String?
+
+  ownedBusiness Business? @relation("OwnedBusiness")
+
+  businessId String?
+  business   Business? @relation("BusinessStaff", fields: [businessId], references: [id])
+
+  redemptionsInitiated Transaction[] @relation("StaffTransactions")
+
+  createdAt DateTime @default(now())
+}
+
+model Client {
+  id             String  @id @default(uuid())
+  name           String?
+  phoneNumber    String  @unique
+  telegramChatId String?
+  points         Int     @default(0)
+  verified       Boolean @default(false)
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  tierId String?
+  tier   LoyaltyTier? @relation(fields: [tierId], references: [id])
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, phoneNumber])
+}
+
+model LoyaltyTier {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  name       String // BRONZE / SILVER / GOLD
+  minPoints  Int
+  discount   Int // percent
+  color      String   @default("#999999")
+
+  clients Client[]
+
+  @@unique([businessId, name])
+}
+
+model LoyaltyRule {
+  id            String      @id @default(uuid())
+  businessId    String
+  business      Business    @relation(fields: [businessId], references: [id])
+  name          String
+  triggerType   TriggerType
+  pointsAwarded Int
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  businessId  String
+  business    Business        @relation(fields: [businessId], references: [id])
+  clientId    String
+  client      Client          @relation(fields: [clientId], references: [id])
+  staffId     String?
+  staff       User?           @relation("StaffTransactions", fields: [staffId], references: [id])
+  amount      Int
+  type        TransactionType
+  description String?
+  createdAt   DateTime        @default(now())
+}
