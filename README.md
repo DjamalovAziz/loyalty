@@ -22,7 +22,7 @@ username/password pair via a dedicated admin panel.
 
 ```bash
 npm install
-cp .env.example .env   # fill in Supabase, Upstash, Telegram, and admin credentials
+cp .env   # fill in Supabase, Upstash, Telegram, and admin credentials
 npm run db:push        # or db:migrate for a tracked migration
 npm run dev
 ```
