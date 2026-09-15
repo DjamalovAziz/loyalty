@@ -40,6 +40,8 @@ model Business {
   transactions Transaction[]
 }
 
+// Note: SUPER_ADMIN is not represented as a User row — it authenticates against
+// ADMIN_USERNAME/ADMIN_PASSWORD env vars directly (see server/auth.ts).
 model User {
   id           String  @id @default(uuid())
   name         String

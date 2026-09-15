@@ -1,13 +1,19 @@
 import { auth } from "~/server/auth";
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-export default auth((req: NextRequest & { auth: any }) => {
+export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
   if (pathname.startsWith("/dashboard")) {
     if (!session || session.user.role !== "BUSINESS_OWNER") {
       return NextResponse.redirect(new URL("/signup", req.url));
+    }
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (pathname !== "/admin/signin" && (!session || session.user.role !== "SUPER_ADMIN")) {
+      return NextResponse.redirect(new URL("/admin/signin", req.url));
     }
   }
 
@@ -22,5 +28,5 @@ export default auth((req: NextRequest & { auth: any }) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/staff/:path*"],
+  matcher: ["/dashboard/:path*", "/staff/:path*", "/admin/:path*"],
 };

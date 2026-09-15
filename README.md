@@ -1,9 +1,9 @@
-# loyalty
+# LoyaltySphere
 
 Multi-tenant, Telegram/phone-native loyalty platform. No email dependencies anywhere in the
 auth flows — Business Owners use phone + password, Staff use phone + PIN + business slug,
 Clients use phone + OTP delivered over Telegram, and the Super Admin uses a single
-username/password pair via AdminJS.
+username/password pair via a dedicated admin panel.
 
 ## Stack
 
@@ -15,7 +15,8 @@ username/password pair via AdminJS.
   redemption OTPs (TTL 300s), client login OTPs (TTL 300s)
 - **NextAuth v5** with three JWT credential providers (`owner`, `staff`, `client`)
 - **grammY** Telegram bot, stateless webhook at `/api/telegram/webhook`
-- **AdminJS 7** for the Super Admin panel at `/admin`
+- Super Admin panel at `/admin` — plain Next.js pages + a `SUPER_ADMIN`-gated tRPC router,
+  no third-party admin framework (see note below on why AdminJS was dropped)
 
 ## Getting started
 
@@ -52,15 +53,20 @@ npm run bot:set-webhook
 5. **Client webapp** (`/b/[slug]`) — phone + Telegram OTP login, auto-registers the client
    on first successful verification, shows points/tier/progress bar, a QR code of the
    client ID for staff to scan, and paginated-ready transaction history.
-6. **Super Admin** (`/admin`) — AdminJS over the same Prisma models, gated by
-   `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+6. **Super Admin** (`/admin`) — signs in via the `admin` NextAuth provider using
+   `ADMIN_USERNAME` / `ADMIN_PASSWORD` (no DB row), then sees global stats, a businesses
+   table, and an owners/staff table with a verify/unverify toggle.
 
 ## Known rough edges to expect
 
-- **AdminJS + Next.js 14 App Router**: `@adminjs/nextjs` is the least mature piece of this
-  stack. If the `/admin` route fails to build, the usual fixes are pinning `adminjs` /
-  `@adminjs/prisma` / `@adminjs/nextjs` to mutually-compatible versions and disabling SSR
-  for any client bundle that imports `adminjs` directly.
+- **Why no AdminJS**: the original spec called for AdminJS, but `@adminjs/nextjs` is not a
+  published package and AdminJS has no official Next.js App Router adapter — the only
+  supported integrations are Express/Fastify/NestJS/Koa, none of which map cleanly onto
+  Vercel's serverless functions. The Super Admin panel here is hand-rolled instead (plain
+  pages + `adminProcedure`); it covers the spec's "global system overview and business
+  control" requirement without a dependency that can't actually build. If you want AdminJS's
+  auto-generated CRUD UI specifically, it needs a standalone Express server deployed
+  separately from this Next.js app.
 - **Vercel serverless + Prisma**: the global singleton in `src/server/db.ts` avoids
   exhausting Supabase's free-tier connection limit, but keep `connection_limit=1` on the
   pooled URL as this prompt specifies.
@@ -84,6 +90,6 @@ src/app/signup                 Owner signup
 src/app/dashboard              Owner dashboard + loyalty CRUD
 src/app/staff/[slug]           Staff signin + panel
 src/app/b/[slug]                Client webapp
-src/app/admin                  Super Admin (AdminJS)
+src/app/admin                  Super Admin (custom, NextAuth + tRPC)
 scripts/set-webhook.ts          Registers the Telegram webhook
 ```

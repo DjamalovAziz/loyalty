@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main className="mx-auto flex max-w-xl flex-col items-center gap-6 px-4 py-24 text-center">
-      <h1 className="text-3xl font-bold">loyalty</h1>
+      <h1 className="text-3xl font-bold">LoyaltySphere</h1>
       <p className="text-gray-600">
         Telegram-native multi-tenant loyalty platform. No email, no passwords to remember for
         clients — just a phone number and Telegram.

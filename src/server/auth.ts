@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
@@ -6,17 +6,13 @@ import { normalizePhone } from "~/lib/phone";
 import { getAndParse, del, keys } from "./redis";
 
 declare module "next-auth" {
-  interface Session {
+  interface Session extends DefaultSession {
     user: {
       id: string;
-      role: "BUSINESS_OWNER" | "STAFF" | "CLIENT";
+      role: "SUPER_ADMIN" | "BUSINESS_OWNER" | "STAFF" | "CLIENT";
       businessSlug?: string;
       businessId?: string;
-    } & {
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    };
+    } & DefaultSession["user"];
   }
 }
 
@@ -24,6 +20,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" }, // JWT sessions to avoid burning Supabase free-tier connections
   pages: { signIn: "/signin" },
   providers: [
+    // --- Super Admin: single username/password pair from env, no DB row ---
+    Credentials({
+      id: "admin",
+      name: "Super Admin",
+      credentials: {
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(creds) {
+        if (!creds?.username || !creds?.password) return null;
+        if (
+          creds.username === process.env.ADMIN_USERNAME &&
+          creds.password === process.env.ADMIN_PASSWORD
+        ) {
+          return { id: "super-admin", name: "Super Admin", role: "SUPER_ADMIN" as const };
+        }
+        return null;
+      },
+    }),
+
     // --- Business Owner: phone + password ---
     Credentials({
       id: "owner",
@@ -32,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         phone_number: { label: "Phone", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(creds: Record<string, unknown>) {
+      async authorize(creds) {
         if (!creds?.phone_number || !creds?.password) return null;
         const phone = normalizePhone(String(creds.phone_number));
         const user = await db.user.findFirst({
@@ -61,7 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         pin: { label: "PIN", type: "password" },
         businessSlug: { label: "Business", type: "text" },
       },
-      async authorize(creds: Record<string, unknown>) {
+      async authorize(creds) {
         if (!creds?.phone_number || !creds?.pin || !creds?.businessSlug) return null;
         const phone = normalizePhone(String(creds.phone_number));
         const business = await db.business.findUnique({
@@ -98,7 +114,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         otp: { label: "OTP", type: "text" },
         businessSlug: { label: "Business", type: "text" },
       },
-      async authorize(creds: Record<string, unknown>) {
+      async authorize(creds) {
         if (!creds?.phone_number || !creds?.otp || !creds?.businessSlug) return null;
         const phone = normalizePhone(String(creds.phone_number));
         const pending = await getAndParse<{ code: string }>(keys.clientLoginOtp(phone));
@@ -132,7 +148,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any; user?: any }) {
+    async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
         token.businessId = (user as any).businessId;
@@ -140,7 +156,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: any }) {
+    async session({ session, token }) {
       session.user.id = token.sub!;
       session.user.role = token.role as any;
       session.user.businessId = token.businessId as any;
