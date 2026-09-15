@@ -46,4 +46,41 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.db.user.update({ where: { id: input.userId }, data: { verified: input.verified } }),
     ),
+
+  // Registers the Telegram webhook by calling Telegram's API from the server (Vercel),
+  // not from your machine — useful when your local network can't reach api.telegram.org
+  // (common with some ISPs) but the deployed app can.
+  setTelegramWebhook: adminProcedure.mutation(async () => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!token || !secret || !appUrl) {
+      throw new Error("Missing TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, or NEXT_PUBLIC_APP_URL");
+    }
+    const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: `${appUrl}/api/telegram/webhook`,
+        secret_token: secret,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(`Telegram API error: ${JSON.stringify(data)}`);
+    return data as { ok: true; result: boolean; description: string };
+  }),
+
+  getTelegramWebhookInfo: adminProcedure.query(async () => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) throw new Error("Missing TELEGRAM_BOT_TOKEN");
+    const res = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
+    const data = await res.json();
+    return data.result as {
+      url: string;
+      has_custom_certificate: boolean;
+      pending_update_count: number;
+      last_error_date?: number;
+      last_error_message?: string;
+    };
+  }),
 });

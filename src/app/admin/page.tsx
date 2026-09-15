@@ -11,9 +11,42 @@ export default function AdminPage() {
     onSuccess: () => utils.admin.listUsers.invalidate(),
   });
 
+  const webhookInfo = api.admin.getTelegramWebhookInfo.useQuery();
+  const setWebhook = api.admin.setTelegramWebhook.useMutation({
+    onSuccess: () => webhookInfo.refetch(),
+  });
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="mb-8 text-2xl font-bold">Super Admin</h1>
+
+      <section className="mb-10 rounded-lg border bg-white p-4">
+        <h2 className="mb-3 text-lg font-semibold">Telegram webhook</h2>
+        {webhookInfo.data && (
+          <div className="mb-3 text-sm text-gray-600">
+            <p>URL: {webhookInfo.data.url || <span className="text-red-600">not set</span>}</p>
+            <p>Pending updates: {webhookInfo.data.pending_update_count}</p>
+            {webhookInfo.data.last_error_message && (
+              <p className="text-red-600">
+                Last error: {webhookInfo.data.last_error_message}
+              </p>
+            )}
+          </div>
+        )}
+        <button
+          className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          onClick={() => setWebhook.mutate()}
+          disabled={setWebhook.isPending}
+        >
+          {setWebhook.isPending ? "Registering..." : "Register webhook now"}
+        </button>
+        {setWebhook.isError && (
+          <p className="mt-2 text-sm text-red-600">{setWebhook.error.message}</p>
+        )}
+        {setWebhook.isSuccess && (
+          <p className="mt-2 text-sm text-green-700">Webhook registered successfully.</p>
+        )}
+      </section>
 
       {overview.data && (
         <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-5">

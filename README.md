@@ -1,4 +1,4 @@
-# Loyalty
+# LoyaltySphere
 
 Multi-tenant, Telegram/phone-native loyalty platform. No email dependencies anywhere in the
 auth flows — Business Owners use phone + password, Staff use phone + PIN + business slug,
@@ -22,7 +22,7 @@ username/password pair via a dedicated admin panel.
 
 ```bash
 npm install
-cp .env   # fill in Supabase, Upstash, Telegram, and admin credentials
+cp .env.example .env   # fill in Supabase, Upstash, Telegram, and admin credentials
 npm run db:push        # or db:migrate for a tracked migration
 npm run dev
 ```
@@ -93,6 +93,3 @@ src/app/b/[slug]                Client webapp
 src/app/admin                  Super Admin (custom, NextAuth + tRPC)
 scripts/set-webhook.ts          Registers the Telegram webhook
 ```
-
-
-[https://api.telegram.org/bot](https://api.telegram.org/bot)<8974755175:AAGbEUqghLvwaxT5EBuLWr1-W_1aDf06mYs>/getWebhookInfo
