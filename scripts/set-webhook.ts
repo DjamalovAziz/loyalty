@@ -2,7 +2,7 @@
 // Requires TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, and NEXT_PUBLIC_APP_URL in .env
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 if (!token || !secret || !appUrl) {

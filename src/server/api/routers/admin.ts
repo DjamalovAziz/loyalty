@@ -52,7 +52,7 @@ export const adminRouter = createTRPCRouter({
   // (common with some ISPs) but the deployed app can.
   setTelegramWebhook: adminProcedure.mutation(async () => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
-    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!token || !secret || !appUrl) {
       throw new Error("Missing TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, or NEXT_PUBLIC_APP_URL");
