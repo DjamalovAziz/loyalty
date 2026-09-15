@@ -1,15 +1,12 @@
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
     return {
         rules: {
-            userAgent: '*',
-            allow: ['/', '/signup', '/signin', '/b/'],
-            disallow: ['/admin/', '/dashboard/', '/staff/', '/api/'],
+            userAgent: "*",
+            allow: "/",
+            disallow: ["/dashboard", "/staff", "/admin", "/api"],
         },
-        sitemap: `${baseUrl}/sitemap.xml`,
+        sitemap: `${process.env.NEXT_PUBLIC_APP_URL}/sitemap.xml`,
     };
 }
