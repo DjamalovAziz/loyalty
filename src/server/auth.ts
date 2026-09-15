@@ -117,12 +117,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(creds) {
         if (!creds?.phone_number || !creds?.otp || !creds?.businessSlug) return null;
         const phone = normalizePhone(String(creds.phone_number));
-        const pending = await getAndParse<{ code: string }>(keys.clientLoginOtp(phone));
+        const businessSlug = String(creds.businessSlug);
+
+        const pending = await getAndParse<{ code: string }>(keys.clientLoginOtp(businessSlug, phone));
         if (!pending || pending.code !== String(creds.otp)) return null;
-        await del(keys.clientLoginOtp(phone));
+        await del(keys.clientLoginOtp(businessSlug, phone));
 
         const business = await db.business.findUnique({
-          where: { slug: String(creds.businessSlug) },
+          where: { slug: businessSlug },
         });
         if (!business) return null;
 

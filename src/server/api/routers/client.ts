@@ -24,7 +24,7 @@ export const clientRouter = createTRPCRouter({
       if (!business) throw new TRPCError({ code: "NOT_FOUND", message: "Business not found." });
 
       const code = generateOtp();
-      await setWithTtl(keys.clientLoginOtp(phone), { code }, 300);
+      await setWithTtl(keys.clientLoginOtp(business.slug, phone), { code }, 300);
 
       const existingClient = await db.client.findUnique({
         where: { businessId_phoneNumber: { businessId: business.id, phoneNumber: phone } },

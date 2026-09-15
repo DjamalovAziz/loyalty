@@ -10,4 +10,9 @@ export const db =
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+// Always cache on globalThis — including in production. Next.js can instantiate this
+// module more than once per warm serverless container across different route-handler
+// chunks; without an unconditional cache, each instantiation opens its own connection
+// pool against Supabase's already-scarce pooler slots (connection_limit=1 each), and
+// under load that's how you get "too many connections" on the free tier.
+globalForPrisma.prisma = db;

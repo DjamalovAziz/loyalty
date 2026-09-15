@@ -3,8 +3,9 @@ import { db } from "~/server/db";
 import { getAndParse, del, keys, setWithTtl, type PendingSignup } from "~/server/redis";
 import { normalizePhone } from "~/lib/phone";
 import bcrypt from "bcryptjs";
+import { env } from "~/env";
 
-export const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
+export const bot = new Bot(env().TELEGRAM_BOT_TOKEN);
 
 // /start <token> — Business Owner registration deep link
 bot.command("start", async (ctx) => {

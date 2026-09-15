@@ -2,7 +2,7 @@ import "~/styles/globals.css";
 import { TRPCReactProvider } from "~/trpc/react";
 
 export const metadata = {
-  title: "LoyaltySphere",
+  title: "Loyalty",
   description: "Telegram-native loyalty platform for Central Asian businesses",
 };
 

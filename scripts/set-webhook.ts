@@ -10,12 +10,12 @@ if (!token || !secret || !appUrl) {
   process.exit(1);
 }
 
-const webhookUrl = `${appUrl}/api/telegram/webhook?secret=${secret}`;
+const webhookUrl = `${appUrl}/api/telegram/webhook`;
 
 fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ url: webhookUrl }),
+  body: JSON.stringify({ url: webhookUrl, secret_token: secret }),
 })
   .then((r) => r.json())
   .then((data) => console.log("Telegram setWebhook response:", data))
