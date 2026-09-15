@@ -10,7 +10,7 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-export const clientRouter = createTRPCRouter({
+export const portalRouter = createTRPCRouter({
   requestLoginOtp: publicProcedure
     .input(
       z.object({

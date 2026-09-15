@@ -22,7 +22,7 @@ function ClientLogin({ slug }: { slug: string }) {
   const [botLink, setBotLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const requestOtp = api.client.requestLoginOtp.useMutation({
+  const requestOtp = api.portal.requestLoginOtp.useMutation({
     onSuccess: (res) => {
       if (!res.delivered) setBotLink(res.botLink ?? null);
       setStep("otp");
@@ -96,9 +96,9 @@ function ClientLogin({ slug }: { slug: string }) {
 }
 
 function ClientDashboard() {
-  const me = api.client.me.useQuery();
-  const tiers = api.client.myTiers.useQuery();
-  const history = api.client.myTransactions.useQuery();
+  const me = api.portal.me.useQuery();
+  const tiers = api.portal.myTiers.useQuery();
+  const history = api.portal.myTransactions.useQuery();
 
   if (!me.data) return <p className="p-10 text-center text-gray-500">Loading...</p>;
 

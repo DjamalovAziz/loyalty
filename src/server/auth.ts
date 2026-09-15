@@ -1,4 +1,4 @@
-import NextAuth, { type DefaultSession } from "next-auth";
+import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
@@ -6,13 +6,17 @@ import { normalizePhone } from "~/lib/phone";
 import { getAndParse, del, keys } from "./redis";
 
 declare module "next-auth" {
-  interface Session extends DefaultSession {
+  interface Session {
     user: {
       id: string;
       role: "BUSINESS_OWNER" | "STAFF" | "CLIENT";
       businessSlug?: string;
       businessId?: string;
-    } & DefaultSession["user"];
+    } & {
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
   }
 }
 
@@ -28,7 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         phone_number: { label: "Phone", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(creds) {
+      async authorize(creds: Record<string, unknown>) {
         if (!creds?.phone_number || !creds?.password) return null;
         const phone = normalizePhone(String(creds.phone_number));
         const user = await db.user.findFirst({
@@ -57,7 +61,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         pin: { label: "PIN", type: "password" },
         businessSlug: { label: "Business", type: "text" },
       },
-      async authorize(creds) {
+      async authorize(creds: Record<string, unknown>) {
         if (!creds?.phone_number || !creds?.pin || !creds?.businessSlug) return null;
         const phone = normalizePhone(String(creds.phone_number));
         const business = await db.business.findUnique({
@@ -94,7 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         otp: { label: "OTP", type: "text" },
         businessSlug: { label: "Business", type: "text" },
       },
-      async authorize(creds) {
+      async authorize(creds: Record<string, unknown>) {
         if (!creds?.phone_number || !creds?.otp || !creds?.businessSlug) return null;
         const phone = normalizePhone(String(creds.phone_number));
         const pending = await getAndParse<{ code: string }>(keys.clientLoginOtp(phone));
@@ -128,7 +132,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: any; user?: any }) {
       if (user) {
         token.role = (user as any).role;
         token.businessId = (user as any).businessId;
@@ -136,7 +140,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: any }) {
       session.user.id = token.sub!;
       session.user.role = token.role as any;
       session.user.businessId = token.businessId as any;
