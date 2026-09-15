@@ -49,6 +49,12 @@ export default function SignupPage() {
   return (
     <main className="mx-auto max-w-md px-4 py-16">
       <h1 className="mb-6 text-2xl font-bold">Register your business</h1>
+      <p className="mb-4 text-sm text-gray-600">
+        Already have an account?{" "}
+        <a href="/owner/signin" className="underline">
+          Sign in
+        </a>
+      </p>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input
           className="rounded border px-3 py-2"

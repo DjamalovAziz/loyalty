@@ -87,7 +87,10 @@ bot.on("message:contact", async (ctx) => {
 
       await del(keys.signupVerify(token));
       await del(`start-session:${chatId}`);
-      await ctx.reply("✅ Registration complete! You can now sign in on the website.");
+      const appUrl = env().NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+      await ctx.reply(
+        `✅ Registration complete! You can now sign in on the website:\n${appUrl}/owner/signin`,
+      );
       return;
     }
 

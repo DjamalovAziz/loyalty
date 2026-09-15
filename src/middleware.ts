@@ -7,7 +7,7 @@ export default auth((req) => {
 
   if (pathname.startsWith("/dashboard")) {
     if (!session || session.user.role !== "BUSINESS_OWNER") {
-      return NextResponse.redirect(new URL("/signup", req.url));
+      return NextResponse.redirect(new URL("/owner/signin", req.url));
     }
   }
 
