@@ -9,7 +9,10 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   loyalty: loyaltyRouter,
   staff: staffRouter,
-  client: clientRouter,
+  // Named "customer", not "client" — `client` collides with the built-in `.client`
+  // property on the tRPC React Query proxy (@trpc/react-query reserves it for the
+  // underlying vanilla trpc client) and breaks typechecking if reused as a router key.
+  customer: clientRouter,
   admin: adminRouter,
 });
 
