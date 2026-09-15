@@ -1,8 +1,11 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
-  DIRECT_URL: z.string().url(),
+  // Not .url() — Postgres connection strings can contain unencoded special characters
+  // (#, @, etc.) in the password that trip up strict WHATWG URL parsing even though
+  // Prisma itself parses them fine. Just check they look like a postgres URI.
+  DATABASE_URL: z.string().min(1).startsWith("postgres", "must be a postgresql:// connection string"),
+  DIRECT_URL: z.string().min(1).startsWith("postgres", "must be a postgresql:// connection string"),
   AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required (openssl rand -base64 32)"),
   UPSTASH_REDIS_REST_URL: z.string().url(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
