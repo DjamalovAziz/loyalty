@@ -15,6 +15,7 @@ export const translations: Record<Locale, Dict> = {
     "landing.description":
       "Telegram-native multi-tenant loyalty platform. No email, no passwords to remember for clients — just a phone number and Telegram.",
     "landing.cta": "Register your business",
+    "landing.signinCta": "Sign in",
 
     "signup.title": "Register your business",
     "signup.name": "Full name",
@@ -27,6 +28,16 @@ export const translations: Record<Locale, Dict> = {
     "signup.almostDone": "Almost done!",
     "signup.confirmInTelegram": "Confirm your phone number in Telegram to finish registration.",
     "signup.openTelegram": "Open Telegram",
+    "signup.haveAccount": "Already have an account?",
+    "signup.signinLink": "Sign in",
+
+    "ownerSignin.title": "Sign in to your business",
+    "ownerSignin.phone": "+998901234567",
+    "ownerSignin.password": "Password",
+    "ownerSignin.submit": "Sign in",
+    "ownerSignin.error": "Invalid phone number or password.",
+    "ownerSignin.noAccount": "Don't have a business yet?",
+    "ownerSignin.signupLink": "Register",
 
     "staffSignin.title": "Staff sign in",
     "staffSignin.phone": "+998901234567",
@@ -55,6 +66,7 @@ export const translations: Record<Locale, Dict> = {
     "landing.description":
       "Мультитенантная платформа лояльности на базе Telegram. Никаких email и паролей для клиентов — только номер телефона и Telegram.",
     "landing.cta": "Зарегистрировать бизнес",
+    "landing.signinCta": "Войти",
 
     "signup.title": "Регистрация бизнеса",
     "signup.name": "Полное имя",
@@ -67,6 +79,16 @@ export const translations: Record<Locale, Dict> = {
     "signup.almostDone": "Почти готово!",
     "signup.confirmInTelegram": "Подтвердите номер телефона в Telegram, чтобы завершить регистрацию.",
     "signup.openTelegram": "Открыть Telegram",
+    "signup.haveAccount": "Уже есть аккаунт?",
+    "signup.signinLink": "Войти",
+
+    "ownerSignin.title": "Вход для владельца бизнеса",
+    "ownerSignin.phone": "+998901234567",
+    "ownerSignin.password": "Пароль",
+    "ownerSignin.submit": "Войти",
+    "ownerSignin.error": "Неверный номер телефона или пароль.",
+    "ownerSignin.noAccount": "Ещё нет бизнеса?",
+    "ownerSignin.signupLink": "Зарегистрироваться",
 
     "staffSignin.title": "Вход для персонала",
     "staffSignin.phone": "+998901234567",
@@ -95,6 +117,7 @@ export const translations: Record<Locale, Dict> = {
     "landing.description":
       "Telegram asosidagi ko'p tarmoqli sodiqlik platformasi. Mijozlar uchun email va parol shart emas — faqat telefon raqami va Telegram.",
     "landing.cta": "Biznesingizni ro'yxatdan o'tkazing",
+    "landing.signinCta": "Kirish",
 
     "signup.title": "Biznesni ro'yxatdan o'tkazish",
     "signup.name": "To'liq ism",
@@ -107,6 +130,16 @@ export const translations: Record<Locale, Dict> = {
     "signup.almostDone": "Deyarli tayyor!",
     "signup.confirmInTelegram": "Ro'yxatdan o'tishni yakunlash uchun Telegram'da telefon raqamingizni tasdiqlang.",
     "signup.openTelegram": "Telegram'ni ochish",
+    "signup.haveAccount": "Akkountingiz bormi?",
+    "signup.signinLink": "Kirish",
+
+    "ownerSignin.title": "Biznes egasi uchun kirish",
+    "ownerSignin.phone": "+998901234567",
+    "ownerSignin.password": "Parol",
+    "ownerSignin.submit": "Kirish",
+    "ownerSignin.error": "Telefon raqami yoki parol noto'g'ri.",
+    "ownerSignin.noAccount": "Hali biznesingiz yo'qmi?",
+    "ownerSignin.signupLink": "Ro'yxatdan o'tish",
 
     "staffSignin.title": "Xodim uchun kirish",
     "staffSignin.phone": "+998901234567",

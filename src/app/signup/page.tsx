@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "~/trpc/react";
 import { useLocale } from "~/lib/i18n/context";
 import { LanguageSwitcher } from "~/components/LanguageSwitcher";
@@ -94,6 +95,12 @@ export default function SignupPage() {
           {signup.isPending ? t("signup.submitting") : t("signup.submit")}
         </button>
       </form>
+      <p className="mt-4 text-sm text-gray-600">
+        {t("signup.haveAccount")}{" "}
+        <Link href="/signin" className="underline">
+          {t("signup.signinLink")}
+        </Link>
+      </p>
     </main>
   );
 }

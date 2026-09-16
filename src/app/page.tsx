@@ -20,6 +20,12 @@ export default function HomePage() {
         >
           {t("landing.cta")}
         </Link>
+        <Link
+          href="/signin"
+          className="rounded-lg border border-gray-300 px-5 py-2.5 text-gray-900 hover:bg-gray-100"
+        >
+          {t("landing.signinCta")}
+        </Link>
       </div>
     </main>
   );
