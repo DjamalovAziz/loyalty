@@ -8,6 +8,7 @@ import { useState } from "react";
 import superjson from "superjson";
 import type { AppRouter } from "~/server/api/root";
 import { LocaleProvider } from "~/lib/i18n/context";
+import { ThemeProvider } from "~/lib/theme/context";
 
 export const api = createTRPCReact<AppRouter>();
 
@@ -32,13 +33,15 @@ export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <LocaleProvider>
-        <QueryClientProvider client={queryClient}>
-          <api.Provider client={trpcClient} queryClient={queryClient}>
-            {children}
-          </api.Provider>
-        </QueryClientProvider>
-      </LocaleProvider>
+      <ThemeProvider>
+        <LocaleProvider>
+          <QueryClientProvider client={queryClient}>
+            <api.Provider client={trpcClient} queryClient={queryClient}>
+              {children}
+            </api.Provider>
+          </QueryClientProvider>
+        </LocaleProvider>
+      </ThemeProvider>
     </SessionProvider>
   );
 }

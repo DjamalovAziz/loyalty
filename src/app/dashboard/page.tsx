@@ -16,7 +16,7 @@ export default function DashboardPage() {
       </div>
 
       {isLoading || !data ? (
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-muted">Loading...</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <Stat label="Clients" value={data.clientCount} />
@@ -32,8 +32,8 @@ export default function DashboardPage() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <p className="text-sm text-gray-500">{label}</p>
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="text-sm text-muted">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>
     </div>
   );

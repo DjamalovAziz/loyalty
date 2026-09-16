@@ -91,7 +91,12 @@ async function handleIncomingPhone(ctx: Context, realPhone: string) {
 
     await del(keys.signupVerify(token));
     await del(`start-session:${chatId}`);
-    await ctx.reply("✅ Registration complete! You can now sign in on the website.");
+    const signinUrl = `${env().NEXT_PUBLIC_APP_URL}/signin`;
+    await ctx.reply("✅ Registration complete! You can now sign in on the website.", {
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔑 Open my dashboard", url: signinUrl }]],
+      },
+    });
     return;
   }
 

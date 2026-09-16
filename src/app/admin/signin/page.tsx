@@ -3,8 +3,12 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "~/lib/i18n/context";
+import { LanguageSwitcher } from "~/components/LanguageSwitcher";
+import { ThemeToggle } from "~/components/ThemeToggle";
 
 export default function AdminSigninPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -15,7 +19,7 @@ export default function AdminSigninPage() {
     setError(null);
     const res = await signIn("admin", { username, password, redirect: false });
     if (res?.error) {
-      setError("Invalid credentials.");
+      setError(t("adminSignin.error"));
       return;
     }
     router.push("/admin");
@@ -23,26 +27,29 @@ export default function AdminSigninPage() {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-6 text-xl font-bold">Super Admin</h1>
+      <div className="mb-4 flex justify-end">
+        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
+      </div>
+      <h1 className="mb-6 text-xl font-bold">{t("adminSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input
-          className="rounded border px-3 py-2"
-          placeholder="Username"
+          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          placeholder={t("adminSignin.username")}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
         />
         <input
-          className="rounded border px-3 py-2"
+          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           type="password"
-          placeholder="Password"
+          placeholder={t("adminSignin.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button className="rounded-lg bg-gray-900 px-4 py-2.5 text-white" type="submit">
-          Sign in
+        <button className="rounded-lg bg-foreground px-4 py-2.5 text-background" type="submit">
+          {t("adminSignin.submit")}
         </button>
       </form>
     </main>

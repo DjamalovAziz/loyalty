@@ -9,7 +9,7 @@ export function LanguageSwitcher() {
   return (
     <select
       aria-label="Language"
-      className="rounded border bg-white px-2 py-1 text-sm text-gray-700"
+      className="rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
       value={locale}
       onChange={(e) => setLocale(e.target.value as (typeof locales)[number])}
     >

@@ -36,7 +36,7 @@ export default function StaffPanelPage() {
       <h1 className="mb-6 text-xl font-bold">Staff panel</h1>
 
       <input
-        className="mb-3 w-full rounded border px-3 py-2"
+        className="mb-3 w-full rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
         placeholder="Search client by name or phone (or scan QR)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -47,7 +47,7 @@ export default function StaffPanelPage() {
           {search.data.map((c) => (
             <li key={c.id}>
               <button
-                className="w-full rounded border bg-white px-3 py-2 text-left hover:bg-gray-100"
+                className="w-full rounded border border-border border-border bg-card px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
                 onClick={() => setSelectedId(c.id)}
               >
                 {c.name ?? c.phoneNumber} — {c.points} pts {c.tier ? `(${c.tier.name})` : ""}
@@ -58,18 +58,18 @@ export default function StaffPanelPage() {
       )}
 
       {profile.data && (
-        <div className="rounded-lg border bg-white p-4">
-          <button className="mb-4 text-sm text-gray-500 underline" onClick={() => setSelectedId(null)}>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <button className="mb-4 text-sm text-muted underline" onClick={() => setSelectedId(null)}>
             ← back to search
           </button>
           <h2 className="text-lg font-semibold">{profile.data.name ?? profile.data.phoneNumber}</h2>
-          <p className="mb-4 text-gray-600">
+          <p className="mb-4 text-muted">
             {profile.data.points} points {profile.data.tier ? `· ${profile.data.tier.name} tier` : ""}
           </p>
 
           <div className="mb-4 flex items-end gap-2">
             <input
-              className="w-28 rounded border px-2 py-1"
+              className="w-28 rounded border border-border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
               type="number"
               placeholder="Points"
               value={earnPoints}
@@ -86,7 +86,7 @@ export default function StaffPanelPage() {
           {!otpSent ? (
             <div className="flex items-end gap-2">
               <input
-                className="w-28 rounded border px-2 py-1"
+                className="w-28 rounded border border-border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
                 type="number"
                 placeholder="Points"
                 value={redeemPoints}
@@ -104,7 +104,7 @@ export default function StaffPanelPage() {
           ) : (
             <div className="flex items-end gap-2">
               <input
-                className="w-28 rounded border px-2 py-1"
+                className="w-28 rounded border border-border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
                 placeholder="6-digit code"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
