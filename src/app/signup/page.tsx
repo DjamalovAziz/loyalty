@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useLocale } from "~/lib/i18n/context";
+import { LanguageSwitcher } from "~/components/LanguageSwitcher";
 
 export default function SignupPage() {
+  const { t } = useLocale();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +26,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(t("signup.passwordMismatch"));
       return;
     }
     signup.mutate({ name, phone_number: phone, password });
@@ -32,15 +35,13 @@ export default function SignupPage() {
   if (deepLink) {
     return (
       <main className="mx-auto max-w-md px-4 py-24 text-center">
-        <h1 className="mb-4 text-xl font-semibold">Almost done!</h1>
-        <p className="mb-6 text-gray-600">
-          Confirm your phone number in Telegram to finish registration.
-        </p>
+        <h1 className="mb-4 text-xl font-semibold">{t("signup.almostDone")}</h1>
+        <p className="mb-6 text-gray-600">{t("signup.confirmInTelegram")}</p>
         <a
           href={deepLink}
           className="rounded-lg bg-blue-500 px-5 py-2.5 text-white hover:bg-blue-600"
         >
-          Open Telegram
+          {t("signup.openTelegram")}
         </a>
       </main>
     );
@@ -48,24 +49,21 @@ export default function SignupPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 py-16">
-      <h1 className="mb-6 text-2xl font-bold">Register your business</h1>
-      <p className="mb-4 text-sm text-gray-600">
-        Already have an account?{" "}
-        <a href="/owner/signin" className="underline">
-          Sign in
-        </a>
-      </p>
+      <div className="mb-4 flex justify-end">
+        <LanguageSwitcher />
+      </div>
+      <h1 className="mb-6 text-2xl font-bold">{t("signup.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input
           className="rounded border px-3 py-2"
-          placeholder="Full name"
+          placeholder={t("signup.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
         <input
           className="rounded border px-3 py-2"
-          placeholder="+998901234567"
+          placeholder={t("signup.phone")}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required
@@ -73,7 +71,7 @@ export default function SignupPage() {
         <input
           className="rounded border px-3 py-2"
           type="password"
-          placeholder="Password"
+          placeholder={t("signup.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -82,7 +80,7 @@ export default function SignupPage() {
         <input
           className="rounded border px-3 py-2"
           type="password"
-          placeholder="Confirm password"
+          placeholder={t("signup.confirmPassword")}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
@@ -93,7 +91,7 @@ export default function SignupPage() {
           disabled={signup.isPending}
           className="rounded-lg bg-gray-900 px-4 py-2.5 text-white hover:bg-gray-700 disabled:opacity-50"
         >
-          {signup.isPending ? "Submitting..." : "Continue with Telegram"}
+          {signup.isPending ? t("signup.submitting") : t("signup.submit")}
         </button>
       </form>
     </main>

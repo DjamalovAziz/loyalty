@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
+import { useLocale } from "~/lib/i18n/context";
+import { LanguageSwitcher } from "~/components/LanguageSwitcher";
 
 export default function StaffSigninPage() {
+  const { t } = useLocale();
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const [phone, setPhone] = useState("");
@@ -21,7 +24,7 @@ export default function StaffSigninPage() {
       redirect: false,
     });
     if (res?.error) {
-      setError("Invalid phone number or PIN.");
+      setError(t("staffSignin.error"));
       return;
     }
     router.push(`/staff/${slug}/panel`);
@@ -29,15 +32,18 @@ export default function StaffSigninPage() {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-6 text-xl font-bold">Staff sign in</h1>
+      <div className="mb-4 flex justify-end">
+        <LanguageSwitcher />
+      </div>
+      <h1 className="mb-6 text-xl font-bold">{t("staffSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <input className="rounded border px-3 py-2" placeholder="+998901234567" value={phone}
+        <input className="rounded border px-3 py-2" placeholder={t("staffSignin.phone")} value={phone}
           onChange={(e) => setPhone(e.target.value)} required />
-        <input className="rounded border px-3 py-2" type="password" placeholder="4-digit PIN" value={pin}
+        <input className="rounded border px-3 py-2" type="password" placeholder={t("staffSignin.pin")} value={pin}
           onChange={(e) => setPin(e.target.value)} maxLength={4} required />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button className="rounded-lg bg-gray-900 px-4 py-2.5 text-white" type="submit">
-          Sign in
+          {t("staffSignin.submit")}
         </button>
       </form>
     </main>
