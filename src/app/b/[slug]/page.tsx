@@ -112,7 +112,7 @@ function ClientDashboard() {
     <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-10">
       <div className="mb-6 rounded-lg border border-border bg-card p-6 text-center">
         <p className="text-sm text-muted">{t("client.dashboard.yourBalance")}</p>
-        <p className="text-4xl font-bold">{me.data.points} {t("client.dashboard.pointsAbbr")}</p>
+        <p className="text-4xl font-bold">{me.data.points} pts</p>
         {me.data.tier && (
           <p className="mt-1 text-sm text-muted">
             {me.data.tier.name} {t("client.dashboard.tierDiscount")} · {me.data.tier.discount}%
@@ -141,7 +141,7 @@ function ClientDashboard() {
               <span>{new Date(tx.createdAt).toLocaleDateString()}</span>
               <span className={tx.type === "EARN" ? "text-green-600" : "text-blue-600"}>
                 {tx.type === "EARN" ? "+" : "-"}
-                {tx.amount} {t("client.dashboard.pointsAbbr")}
+                {tx.amount} pts
               </span>
             </li>
           ))}

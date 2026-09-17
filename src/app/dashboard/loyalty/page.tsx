@@ -3,10 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
-import { useLocale } from "~/lib/i18n/context";
 
 export default function LoyaltyManagementPage() {
-  const { t } = useLocale();
   const utils = api.useUtils();
   const tiers = api.loyalty.listTiers.useQuery();
   const rules = api.loyalty.listRules.useQuery();
@@ -34,23 +32,23 @@ export default function LoyaltyManagementPage() {
   return (
     <main className="min-h-screen bg-background mx-auto max-w-4xl px-4 py-10">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t("dashboard.loyalty.title")}</h1>
+        <h1 className="text-2xl font-bold">Loyalty rules & tiers</h1>
         <Link href="/dashboard" className="text-sm underline">
-          {t("dashboard.loyalty.backToDashboard")}
+          ← Dashboard
         </Link>
       </div>
 
       <section className="mb-12">
-        <h2 className="mb-4 text-lg font-semibold">{t("dashboard.loyalty.tiers")}</h2>
+        <h2 className="mb-4 text-lg font-semibold">Tiers</h2>
         <ul className="mb-4 flex flex-col gap-2">
           {tiers.data?.map((t) => (
             <li key={t.id} className="flex items-center justify-between rounded border border-border bg-card p-3">
               <span>
                 <span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: t.color }} />
-                {t.name} — {t.minPoints}+ {t("dashboard.loyalty.ptsAbbr")} — {t.discount}% {t("dashboard.loyalty.off")}
+                {t.name} — {t.minPoints}+ pts — {t.discount}% off
               </span>
               <button className="text-sm text-red-600" onClick={() => deleteTier.mutate({ id: t.id })}>
-                {t("dashboard.loyalty.delete")}
+                Delete
               </button>
             </li>
           ))}
@@ -63,26 +61,26 @@ export default function LoyaltyManagementPage() {
           }}
           className="flex flex-wrap gap-2"
         >
-          <input className="rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" placeholder={t("dashboard.loyalty.tierNamePlaceholder")} value={tierForm.name}
+          <input className="rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" placeholder="Name (BRONZE)" value={tierForm.name}
             onChange={(e) => setTierForm({ ...tierForm, name: e.target.value })} required />
-          <input className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" type="number" placeholder={t("dashboard.loyalty.minPoints")} value={tierForm.minPoints}
+          <input className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" type="number" placeholder="Min points" value={tierForm.minPoints}
             onChange={(e) => setTierForm({ ...tierForm, minPoints: Number(e.target.value) })} />
-          <input className="w-24 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" type="number" placeholder={t("dashboard.loyalty.discountPercent")} value={tierForm.discount}
+          <input className="w-24 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" type="number" placeholder="Discount %" value={tierForm.discount}
             onChange={(e) => setTierForm({ ...tierForm, discount: Number(e.target.value) })} />
           <input className="h-9 w-14 rounded border border-border" type="color" value={tierForm.color}
             onChange={(e) => setTierForm({ ...tierForm, color: e.target.value })} />
-          <button className="rounded bg-foreground px-3 py-1 text-background" type="submit">{t("dashboard.loyalty.addTier")}</button>
+          <button className="rounded bg-foreground px-3 py-1 text-background" type="submit">Add tier</button>
         </form>
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold">{t("dashboard.loyalty.rules")}</h2>
+        <h2 className="mb-4 text-lg font-semibold">Rules</h2>
         <ul className="mb-4 flex flex-col gap-2">
           {rules.data?.map((r) => (
             <li key={r.id} className="flex items-center justify-between rounded border border-border bg-card p-3">
-              <span>{r.name} — {r.triggerType} — +{r.pointsAwarded} {t("dashboard.loyalty.ptsAbbr")}</span>
+              <span>{r.name} — {r.triggerType} — +{r.pointsAwarded} pts</span>
               <button className="text-sm text-red-600" onClick={() => deleteRule.mutate({ id: r.id })}>
-                {t("dashboard.loyalty.delete")}
+                Delete
               </button>
             </li>
           ))}
@@ -95,16 +93,16 @@ export default function LoyaltyManagementPage() {
           }}
           className="flex flex-wrap gap-2"
         >
-          <input className="rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" placeholder={t("dashboard.loyalty.ruleNamePlaceholder")} value={ruleForm.name}
+          <input className="rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" placeholder="Rule name" value={ruleForm.name}
             onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} required />
           <select className="rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" value={ruleForm.triggerType}
             onChange={(e) => setRuleForm({ ...ruleForm, triggerType: e.target.value as "VISIT" | "PURCHASE" })}>
-            <option value="VISIT">{t("dashboard.loyalty.triggerVisit")}</option>
-            <option value="PURCHASE">{t("dashboard.loyalty.triggerPurchase")}</option>
+            <option value="VISIT">Visit</option>
+            <option value="PURCHASE">Purchase</option>
           </select>
-          <input className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" type="number" placeholder={t("dashboard.loyalty.points")} value={ruleForm.pointsAwarded}
+          <input className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted" type="number" placeholder="Points" value={ruleForm.pointsAwarded}
             onChange={(e) => setRuleForm({ ...ruleForm, pointsAwarded: Number(e.target.value) })} />
-          <button className="rounded bg-foreground px-3 py-1 text-background" type="submit">{t("dashboard.loyalty.addRule")}</button>
+          <button className="rounded bg-foreground px-3 py-1 text-background" type="submit">Add rule</button>
         </form>
       </section>
     </main>
