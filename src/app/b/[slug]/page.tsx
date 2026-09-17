@@ -45,7 +45,7 @@ function ClientLogin({ slug }: { slug: string }) {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-16">
+    <main className="min-h-screen bg-background mx-auto max-w-sm px-4 py-16">
       <h1 className="mb-6 text-xl font-bold">{t("client.signin.title")}</h1>
 
       {step === "phone" ? (
@@ -57,7 +57,7 @@ function ClientLogin({ slug }: { slug: string }) {
           className="flex flex-col gap-4"
         >
           <input
-            className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+            className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
             placeholder={t("client.signin.phone")}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -78,7 +78,7 @@ function ClientLogin({ slug }: { slug: string }) {
             </p>
           )}
           <input
-            className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+            className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
             placeholder={t("client.signin.otp")}
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
@@ -109,7 +109,7 @@ function ClientDashboard() {
     : 100;
 
   return (
-    <main className="mx-auto max-w-md px-4 py-10">
+    <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-10">
       <div className="mb-6 rounded-lg border border-border bg-card p-6 text-center">
         <p className="text-sm text-muted">{t("client.dashboard.yourBalance")}</p>
         <p className="text-4xl font-bold">{me.data.points} pts</p>

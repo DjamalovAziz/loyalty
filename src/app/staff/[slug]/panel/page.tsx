@@ -32,11 +32,11 @@ export default function StaffPanelPage() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <main className="min-h-screen bg-background mx-auto max-w-2xl px-4 py-10">
       <h1 className="mb-6 text-xl font-bold">Staff panel</h1>
 
       <input
-        className="mb-3 w-full rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+        className="mb-3 w-full rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
         placeholder="Search client by name or phone (or scan QR)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -47,7 +47,7 @@ export default function StaffPanelPage() {
           {search.data.map((c) => (
             <li key={c.id}>
               <button
-                className="w-full rounded border border-border border-border bg-card px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                className="w-full rounded border border-border bg-card px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
                 onClick={() => setSelectedId(c.id)}
               >
                 {c.name ?? c.phoneNumber} — {c.points} pts {c.tier ? `(${c.tier.name})` : ""}
@@ -69,7 +69,7 @@ export default function StaffPanelPage() {
 
           <div className="mb-4 flex items-end gap-2">
             <input
-              className="w-28 rounded border border-border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
+              className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
               type="number"
               placeholder="Points"
               value={earnPoints}
@@ -86,7 +86,7 @@ export default function StaffPanelPage() {
           {!otpSent ? (
             <div className="flex items-end gap-2">
               <input
-                className="w-28 rounded border border-border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
+                className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
                 type="number"
                 placeholder="Points"
                 value={redeemPoints}
@@ -104,7 +104,7 @@ export default function StaffPanelPage() {
           ) : (
             <div className="flex items-end gap-2">
               <input
-                className="w-28 rounded border border-border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
+                className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
                 placeholder="6-digit code"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}

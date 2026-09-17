@@ -24,18 +24,18 @@ export default function AdminSigninPage() {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-16">
+    <main className="min-h-screen bg-background mx-auto max-w-sm px-4 py-16">
       <h1 className="mb-6 text-xl font-bold">{t("adminSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           placeholder={t("adminSignin.username")}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
         />
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           type="password"
           placeholder={t("adminSignin.password")}
           value={password}

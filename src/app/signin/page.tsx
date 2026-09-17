@@ -32,18 +32,18 @@ export default function OwnerSigninPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
+    <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-16">
       <h1 className="mb-6 text-2xl font-bold">{t("ownerSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           placeholder={t("ownerSignin.phone")}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required
         />
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           type="password"
           placeholder={t("ownerSignin.password")}
           value={password}

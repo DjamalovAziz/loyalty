@@ -34,7 +34,7 @@ export default function SignupPage() {
 
   if (deepLink) {
     return (
-      <main className="mx-auto max-w-md px-4 py-24 text-center">
+      <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="mb-4 text-xl font-semibold">{t("signup.almostDone")}</h1>
         <p className="mb-6 text-muted">{t("signup.confirmInTelegram")}</p>
         <a
@@ -48,25 +48,25 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
+    <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-16">
       <h1 className="mb-6 text-2xl font-bold">{t("signup.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           placeholder={t("signup.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           placeholder={t("signup.phone")}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required
         />
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           type="password"
           placeholder={t("signup.password")}
           value={password}
@@ -75,7 +75,7 @@ export default function SignupPage() {
           minLength={8}
         />
         <input
-          className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
+          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
           type="password"
           placeholder={t("signup.confirmPassword")}
           value={confirm}

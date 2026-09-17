@@ -6,7 +6,7 @@ import { useLocale } from "~/lib/i18n/context";
 export default function HomePage() {
   const { t } = useLocale();
   return (
-    <main className="mx-auto flex max-w-xl flex-col items-center gap-6 px-4 py-24 text-center">
+    <main className="min-h-screen bg-background mx-auto flex max-w-xl flex-col items-center gap-6 px-4 py-24 text-center">
       <h1 className="text-3xl font-bold">{t("landing.title")}</h1>
       <p className="text-muted">{t("landing.description")}</p>
       <div className="flex gap-4">

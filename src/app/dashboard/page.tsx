@@ -7,7 +7,7 @@ export default function DashboardPage() {
   const { data, isLoading } = api.loyalty.overview.useQuery();
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10">
+    <main className="min-h-screen bg-background mx-auto max-w-4xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <Link href="/dashboard/loyalty" className="text-sm underline">

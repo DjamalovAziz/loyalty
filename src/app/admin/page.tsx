@@ -19,7 +19,7 @@ export default function AdminPage() {
   });
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
+    <main className="min-h-screen bg-background mx-auto max-w-5xl px-4 py-10">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t("admin.title")}</h1>
       </div>
