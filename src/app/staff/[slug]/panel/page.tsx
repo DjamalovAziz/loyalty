@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useLocale } from "~/lib/i18n/context";
 
 export default function StaffPanelPage() {
+  const { t } = useLocale();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [earnPoints, setEarnPoints] = useState(0);
@@ -33,11 +35,11 @@ export default function StaffPanelPage() {
 
   return (
     <main className="min-h-screen bg-background mx-auto max-w-2xl px-4 py-10">
-      <h1 className="mb-6 text-xl font-bold">Staff panel</h1>
+      <h1 className="mb-6 text-xl font-bold">{t("staff.panel.title")}</h1>
 
       <input
         className="mb-3 w-full rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
-        placeholder="Search client by name or phone (or scan QR)"
+        placeholder={t("staff.panel.searchPlaceholder")}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -50,7 +52,7 @@ export default function StaffPanelPage() {
                 className="w-full rounded border border-border bg-card px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
                 onClick={() => setSelectedId(c.id)}
               >
-                {c.name ?? c.phoneNumber} — {c.points} pts {c.tier ? `(${c.tier.name})` : ""}
+                {c.name ?? c.phoneNumber} — {c.points} {t("staff.panel.points")} {c.tier ? `(${c.tier.name})` : ""}
               </button>
             </li>
           ))}
@@ -60,18 +62,18 @@ export default function StaffPanelPage() {
       {profile.data && (
         <div className="rounded-lg border border-border bg-card p-4">
           <button className="mb-4 text-sm text-muted underline" onClick={() => setSelectedId(null)}>
-            ← back to search
+            {t("staff.panel.backToSearch")}
           </button>
           <h2 className="text-lg font-semibold">{profile.data.name ?? profile.data.phoneNumber}</h2>
           <p className="mb-4 text-muted">
-            {profile.data.points} points {profile.data.tier ? `· ${profile.data.tier.name} tier` : ""}
+            {profile.data.points} {t("staff.panel.points")} {profile.data.tier ? `· ${profile.data.tier.name} ${t("staff.panel.tier")}` : ""}
           </p>
 
           <div className="mb-4 flex items-end gap-2">
             <input
               className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
               type="number"
-              placeholder="Points"
+              placeholder={t("staff.panel.pointsPlaceholder")}
               value={earnPoints}
               onChange={(e) => setEarnPoints(Number(e.target.value))}
             />
@@ -79,7 +81,7 @@ export default function StaffPanelPage() {
               className="rounded bg-green-600 px-3 py-1.5 text-white"
               onClick={() => earn.mutate({ clientId: profile.data.id, points: earnPoints })}
             >
-              Earn points
+              {t("staff.panel.earnPoints")}
             </button>
           </div>
 
@@ -88,7 +90,7 @@ export default function StaffPanelPage() {
               <input
                 className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
                 type="number"
-                placeholder="Points"
+                placeholder={t("staff.panel.pointsPlaceholder")}
                 value={redeemPoints}
                 onChange={(e) => setRedeemPoints(Number(e.target.value))}
               />
@@ -98,14 +100,14 @@ export default function StaffPanelPage() {
                   initiateRedeem.mutate({ clientId: profile.data.id, points: redeemPoints })
                 }
               >
-                Send redemption OTP
+                {t("staff.panel.sendRedemptionOtp")}
               </button>
             </div>
           ) : (
             <div className="flex items-end gap-2">
               <input
                 className="w-28 rounded border border-border bg-card px-2 py-1 text-foreground placeholder:text-muted"
-                placeholder="6-digit code"
+                placeholder={t("staff.panel.otpPlaceholder")}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 maxLength={6}
@@ -114,7 +116,7 @@ export default function StaffPanelPage() {
                 className="rounded bg-blue-600 px-3 py-1.5 text-white"
                 onClick={() => confirmRedeem.mutate({ clientId: profile.data.id, otp })}
               >
-                Confirm redemption
+                {t("staff.panel.confirmRedemption")}
               </button>
             </div>
           )}
