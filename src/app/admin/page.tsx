@@ -2,8 +2,6 @@
 
 import { api } from "~/trpc/react";
 import { useLocale } from "~/lib/i18n/context";
-import { LanguageSwitcher } from "~/components/LanguageSwitcher";
-import { ThemeToggle } from "~/components/ThemeToggle";
 
 export default function AdminPage() {
   const { t } = useLocale();
@@ -24,7 +22,6 @@ export default function AdminPage() {
     <main className="mx-auto max-w-5xl px-4 py-10">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t("admin.title")}</h1>
-        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
       </div>
 
       <section className="mb-10 rounded-lg border border-border bg-card p-4">

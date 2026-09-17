@@ -4,8 +4,6 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "~/lib/i18n/context";
-import { LanguageSwitcher } from "~/components/LanguageSwitcher";
-import { ThemeToggle } from "~/components/ThemeToggle";
 
 export default function AdminSigninPage() {
   const { t } = useLocale();
@@ -27,9 +25,6 @@ export default function AdminSigninPage() {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <div className="mb-4 flex justify-end">
-        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
-      </div>
       <h1 className="mb-6 text-xl font-bold">{t("adminSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input

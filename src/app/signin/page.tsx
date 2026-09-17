@@ -5,8 +5,6 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "~/lib/i18n/context";
-import { LanguageSwitcher } from "~/components/LanguageSwitcher";
-import { ThemeToggle } from "~/components/ThemeToggle";
 
 export default function OwnerSigninPage() {
   const { t } = useLocale();
@@ -35,9 +33,6 @@ export default function OwnerSigninPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 py-16">
-      <div className="mb-4 flex justify-end">
-        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
-      </div>
       <h1 className="mb-6 text-2xl font-bold">{t("ownerSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input

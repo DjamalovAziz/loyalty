@@ -6,8 +6,6 @@ import { signIn, useSession } from "next-auth/react";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "~/trpc/react";
 import { useLocale } from "~/lib/i18n/context";
-import { LanguageSwitcher } from "~/components/LanguageSwitcher";
-import { ThemeToggle } from "~/components/ThemeToggle";
 
 export default function ClientAppPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -48,9 +46,6 @@ function ClientLogin({ slug }: { slug: string }) {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <div className="mb-4 flex justify-end">
-        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
-      </div>
       <h1 className="mb-6 text-xl font-bold">{t("client.signin.title")}</h1>
 
       {step === "phone" ? (
@@ -115,9 +110,6 @@ function ClientDashboard() {
 
   return (
     <main className="mx-auto max-w-md px-4 py-10">
-      <div className="mb-4 flex justify-end">
-        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
-      </div>
       <div className="mb-6 rounded-lg border border-border bg-card p-6 text-center">
         <p className="text-sm text-muted">{t("client.dashboard.yourBalance")}</p>
         <p className="text-4xl font-bold">{me.data.points} pts</p>

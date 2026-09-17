@@ -1,5 +1,7 @@
 import "~/styles/globals.css";
 import { TRPCReactProvider } from "~/trpc/react";
+import { LanguageSwitcher } from "~/components/LanguageSwitcher";
+import { ThemeToggle } from "~/components/ThemeToggle";
 
 export const metadata = {
   title: "LoyaltySphere",
@@ -25,7 +27,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>
       <body className="min-h-screen bg-background text-foreground">
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <TRPCReactProvider>
+          <div className="fixed right-4 top-4 z-50 flex gap-2">
+            <LanguageSwitcher />
+            <ThemeToggle />
+          </div>
+          {children}
+        </TRPCReactProvider>
       </body>
     </html>
   );

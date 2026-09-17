@@ -4,8 +4,6 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useLocale } from "~/lib/i18n/context";
-import { LanguageSwitcher } from "~/components/LanguageSwitcher";
-import { ThemeToggle } from "~/components/ThemeToggle";
 
 export default function StaffSigninPage() {
   const { t } = useLocale();
@@ -33,9 +31,6 @@ export default function StaffSigninPage() {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <div className="mb-4 flex justify-end">
-        <div className="flex gap-2"><LanguageSwitcher /><ThemeToggle /></div>
-      </div>
       <h1 className="mb-6 text-xl font-bold">{t("staffSignin.title")}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input className="rounded border border-border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted" placeholder={t("staffSignin.phone")} value={phone}
