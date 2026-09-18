@@ -1,0 +1,65 @@
+Ты — Senior Full-Stack Инженер. Реализуй модуль каталога, подписок на программы лояльности и техподдержки для LoyaltySphere (Next.js 14 App Router, tRPC v11, Prisma, Supabase Postgres, Upstash Redis).
+
+Главный принцип: Простая БД, понятная логика, ноль овер-инжиниринга.
+
+---
+
+### 1. Изменения в БД (prisma/schema.prisma)
+
+1. Модель User:
+   - Единый аккаунт для всех (и для клиентов, и для владельцев).
+   - Поля: id, phone (@unique), name, password.
+   - Связи: ownedBusinesses (Business[]), memberships (ClientMembership[]), tickets (SupportTicket[]).
+
+2. Модель Business:
+   - Добавить поля: category (String — без жестких Enum, простая строка: "barber", "market", "medicine" и т.д.), description (String?), address (String?), lat (Float?), lng (Float?), logoUrl (String?), welcomePoints (Int @default(0)), minCashback (Float @default(0)), telegramGroupUrl (String?).
+
+3. Модель ClientMembership (участие клиента в конкретном бизнесе):
+   - Поля: id, userId, businessId, points (Int @default(0)), status (String @default("ACTIVE") — "ACTIVE" или "INACTIVE").
+   - Уникальный индекс: @@unique([userId, businessId]).
+
+4. Модель SupportTicket:
+   - Поля: id, userId, subject, message, status (String @default("OPEN")), createdAt.
+
+---
+
+### 2. Процедура поиска и фильтрации (tRPC `business.explore`)
+
+Создай эндпоинт `business.explore` с cursor-пагинацией.
+Входные параметры (Zod):
+- `searchQuery` (string, optional) — поиск по `name` (ILIKE, insensitve).
+- `category` (string, optional) — фильтр по категории бизнеса.
+- `hasWelcomeBonus` (boolean, optional) — `welcomePoints > 0`.
+- `minCashback` (number, optional) — `minCashback >= val`.
+- `sortBy` — "NEWEST" (по дате), "POPULAR" (по кол-ву клиентов), "CASHBACK" (по % кэшбэка).
+
+* Примечание по гео: Не усложняй PostGIS. Если переданы lat/lng пользователя, считай расстояние по стандартной формуле Гаверсинуса прямо в JS при маппинге результатов или через простой raw-query.
+
+---
+
+### 3. Экран `/me` и Экран `/b/[slug]`
+
+1. Экран `/me` (Профиль пользователя):
+   - Отображает единый QR-код (содержит `userId`).
+   - Выводит список всех активных подписок (`ClientMembership`) с текущими балансами баллов.
+
+2. Экран `/b/[slug]` (Страница бизнеса):
+   - Показывает баланс пользователя в этом бизнесе.
+   - Кнопка "Вступить" (`client.join`): создаёт `ClientMembership`. Если у бизнеса задан `welcomePoints`, сразу начисляет их. Если есть `telegramGroupUrl`, отдаёт ссылку на чат.
+   - Кнопка "Выйти" (`client.leave`): меняет `status` на "INACTIVE" (баллы обнуляются).
+
+---
+
+### 4. Техподдержка (`/support`)
+
+1. tRPC Mutation `support.create`:
+   - Принимает `subject` и `message`.
+   - Создаёт запись в `SupportTicket`.
+   - Отправляет асинхронное сообщение в Telegram-чат разработчиков с данными: `userId`, `phone`, `subject`, `message`.
+
+---
+
+### Требования к коду:
+- Полная типизация TypeScript + Zod.
+- Использовать `prisma.$transaction` для атомарного создания подписки и начисления приветственных баллов.
+- Простой и чистый UI на Tailwind CSS без лишних библиотек.
