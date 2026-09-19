@@ -40,7 +40,10 @@ model Business {
   // Catalog fields — no hard enum for category on purpose: a small, evolving set of
   // free-text values ("barber", "market", "medicine"...) isn't worth a migration every
   // time a new business type shows up.
-  category         String
+  // Not collected at signup time (the signup form only asks name/phone/password) —
+  // defaults so business.create() during Telegram verification doesn't need it up
+  // front; the owner can set a real category from the dashboard later.
+  category         String  @default("general")
   description      String?
   address          String?
   lat              Float?
