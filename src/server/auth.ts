@@ -9,7 +9,10 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      role: "SUPER_ADMIN" | "BUSINESS_OWNER" | "STAFF" | "CLIENT";
+      role: "SUPER_ADMIN" | "BUSINESS_OWNER" | "STAFF" | "CUSTOMER";
+      // Only meaningful for BUSINESS_OWNER/STAFF, who are scoped to one business.
+      // CUSTOMER sessions are global — no businessId/businessSlug here on purpose;
+      // which business's membership is in view comes from the page's [slug] param.
       businessSlug?: string;
       businessId?: string;
     } & DefaultSession["user"];
@@ -105,46 +108,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
 
-    // --- Client: phone + OTP (delivered via Telegram bot) ---
+    // --- Customer: phone + OTP (delivered via Telegram bot). Global identity — not
+    // scoped to a business; a customer signs in once and can hold memberships in any
+    // number of businesses. ---
     Credentials({
-      id: "client",
-      name: "Client",
+      id: "customer",
+      name: "Customer",
       credentials: {
         phone_number: { label: "Phone", type: "text" },
         otp: { label: "OTP", type: "text" },
-        businessSlug: { label: "Business", type: "text" },
       },
       async authorize(creds) {
-        if (!creds?.phone_number || !creds?.otp || !creds?.businessSlug) return null;
+        if (!creds?.phone_number || !creds?.otp) return null;
         const phone = normalizePhone(String(creds.phone_number));
-        const businessSlug = String(creds.businessSlug);
 
-        const pending = await getAndParse<{ code: string }>(keys.clientLoginOtp(businessSlug, phone));
+        const pending = await getAndParse<{ code: string }>(keys.customerLoginOtp(phone));
         if (!pending || pending.code !== String(creds.otp)) return null;
-        await del(keys.clientLoginOtp(businessSlug, phone));
+        await del(keys.customerLoginOtp(phone));
 
-        const business = await db.business.findUnique({
-          where: { slug: businessSlug },
-        });
-        if (!business) return null;
-
-        // Auto-register the client on first successful verification.
-        const client = await db.client.upsert({
-          where: { businessId_phoneNumber: { businessId: business.id, phoneNumber: phone } },
-          update: { verified: true },
-          create: {
-            businessId: business.id,
-            phoneNumber: phone,
-            verified: true,
-          },
+        // Auto-register the customer on first successful verification.
+        const customer = await db.customer.upsert({
+          where: { phoneNumber: phone },
+          update: {},
+          create: { phoneNumber: phone },
         });
 
         return {
-          id: client.id,
-          name: client.name ?? phone,
-          role: "CLIENT" as const,
-          businessId: business.id,
-          businessSlug: business.slug,
+          id: customer.id,
+          name: customer.name ?? phone,
+          role: "CUSTOMER" as const,
         };
       },
     }),

@@ -100,10 +100,15 @@ async function handleIncomingPhone(ctx: Context, realPhone: string) {
     return;
   }
 
-  // No pending signup token: treat as a client linking their Telegram chat for OTP delivery.
-  await db.client.updateMany({
+  // No pending signup token: treat as a customer linking their Telegram chat for OTP
+  // delivery. Upsert rather than updateMany — a customer's very first contact with the
+  // bot (before ever logging in on the website) should be enough to provision their
+  // global Customer row with the chat already linked, so their first OTP request works
+  // without an extra "no chat linked yet" round trip.
+  await db.customer.upsert({
     where: { phoneNumber: realPhone },
-    data: { telegramChatId: String(chatId) },
+    update: { telegramChatId: String(chatId) },
+    create: { phoneNumber: realPhone, telegramChatId: String(chatId) },
   });
   await ctx.reply("Your Telegram account is now linked for OTP delivery.");
 }

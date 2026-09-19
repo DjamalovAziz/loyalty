@@ -7,7 +7,7 @@ export const adminRouter = createTRPCRouter({
       ctx.db.business.count(),
       ctx.db.user.count({ where: { role: "BUSINESS_OWNER" } }),
       ctx.db.user.count({ where: { role: "STAFF" } }),
-      ctx.db.client.count(),
+      ctx.db.customer.count(),
       ctx.db.transaction.count(),
     ]);
     return { businessCount, ownerCount, staffCount, clientCount, txCount };
@@ -17,7 +17,7 @@ export const adminRouter = createTRPCRouter({
     ctx.db.business.findMany({
       include: {
         owner: { select: { name: true, phoneNumber: true, verified: true } },
-        _count: { select: { clients: true, staff: true, transactions: true } },
+        _count: { select: { memberships: true, staff: true, transactions: true } },
       },
       orderBy: { createdAt: "desc" },
     }),

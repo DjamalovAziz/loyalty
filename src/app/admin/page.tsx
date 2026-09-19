@@ -84,7 +84,7 @@ export default function AdminPage() {
                   <td className="p-2">{b.name}</td>
                   <td className="p-2 text-muted">{b.slug}</td>
                   <td className="p-2">{b.owner.name} ({b.owner.phoneNumber})</td>
-                  <td className="p-2">{b._count.clients}</td>
+                  <td className="p-2">{b._count.memberships}</td>
                   <td className="p-2">{b._count.staff}</td>
                   <td className="p-2">{b._count.transactions}</td>
                 </tr>

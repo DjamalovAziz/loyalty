@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { api } from "~/trpc/react";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function StaffPanelPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -11,9 +13,17 @@ export default function StaffPanelPage() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
 
-  const search = api.staff.searchClient.useQuery({ query }, { enabled: query.length >= 2 });
+  const isScannedId = UUID_RE.test(query.trim());
+
+  const search = api.staff.searchClient.useQuery(
+    { query },
+    { enabled: query.length >= 2 && !isScannedId },
+  );
+  const checkIn = api.staff.checkInByCustomerId.useMutation({
+    onSuccess: (membership) => setSelectedId(membership.id),
+  });
   const profile = api.staff.clientProfile.useQuery(
-    { clientId: selectedId! },
+    { membershipId: selectedId! },
     { enabled: !!selectedId },
   );
 
@@ -37,20 +47,34 @@ export default function StaffPanelPage() {
 
       <input
         className="mb-3 w-full rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
-        placeholder="Search client by name or phone (or scan QR)"
+        placeholder="Search by name or phone, or scan/paste a customer QR"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setSelectedId(null);
+        }}
       />
+
+      {isScannedId && !selectedId && (
+        <button
+          className="mb-6 w-full rounded border border-border bg-card px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+          onClick={() => checkIn.mutate({ customerId: query.trim() })}
+          disabled={checkIn.isPending}
+        >
+          {checkIn.isPending ? "Checking in..." : "✓ Check in this customer"}
+        </button>
+      )}
+      {checkIn.isError && <p className="mb-4 text-sm text-red-600">{checkIn.error.message}</p>}
 
       {search.data && search.data.length > 0 && !selectedId && (
         <ul className="mb-6 flex flex-col gap-1">
-          {search.data.map((c) => (
-            <li key={c.id}>
+          {search.data.map((m) => (
+            <li key={m.id}>
               <button
                 className="w-full rounded border border-border bg-card px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => setSelectedId(c.id)}
+                onClick={() => setSelectedId(m.id)}
               >
-                {c.name ?? c.phoneNumber} — {c.points} pts {c.tier ? `(${c.tier.name})` : ""}
+                {m.customer.name ?? m.customer.phoneNumber} — {m.points} pts {m.tier ? `(${m.tier.name})` : ""}
               </button>
             </li>
           ))}
@@ -62,7 +86,9 @@ export default function StaffPanelPage() {
           <button className="mb-4 text-sm text-muted underline" onClick={() => setSelectedId(null)}>
             ← back to search
           </button>
-          <h2 className="text-lg font-semibold">{profile.data.name ?? profile.data.phoneNumber}</h2>
+          <h2 className="text-lg font-semibold">
+            {profile.data.customer.name ?? profile.data.customer.phoneNumber}
+          </h2>
           <p className="mb-4 text-muted">
             {profile.data.points} points {profile.data.tier ? `· ${profile.data.tier.name} tier` : ""}
           </p>
@@ -77,7 +103,7 @@ export default function StaffPanelPage() {
             />
             <button
               className="rounded bg-green-600 px-3 py-1.5 text-white"
-              onClick={() => earn.mutate({ clientId: profile.data.id, points: earnPoints })}
+              onClick={() => earn.mutate({ membershipId: profile.data.id, points: earnPoints })}
             >
               Earn points
             </button>
@@ -95,7 +121,7 @@ export default function StaffPanelPage() {
               <button
                 className="rounded bg-blue-600 px-3 py-1.5 text-white"
                 onClick={() =>
-                  initiateRedeem.mutate({ clientId: profile.data.id, points: redeemPoints })
+                  initiateRedeem.mutate({ membershipId: profile.data.id, points: redeemPoints })
                 }
               >
                 Send redemption OTP
@@ -112,7 +138,7 @@ export default function StaffPanelPage() {
               />
               <button
                 className="rounded bg-blue-600 px-3 py-1.5 text-white"
-                onClick={() => confirmRedeem.mutate({ clientId: profile.data.id, otp })}
+                onClick={() => confirmRedeem.mutate({ membershipId: profile.data.id, otp })}
               >
                 Confirm redemption
               </button>

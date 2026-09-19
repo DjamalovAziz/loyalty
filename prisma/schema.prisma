@@ -12,7 +12,11 @@ enum Role {
   SUPER_ADMIN
   BUSINESS_OWNER
   STAFF
-  CLIENT
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum TriggerType {
@@ -33,8 +37,21 @@ model Business {
   owner     User     @relation("OwnedBusiness", fields: [ownerId], references: [id])
   createdAt DateTime @default(now())
 
+  // Catalog fields — no hard enum for category on purpose: a small, evolving set of
+  // free-text values ("barber", "market", "medicine"...) isn't worth a migration every
+  // time a new business type shows up.
+  category         String
+  description      String?
+  address          String?
+  lat              Float?
+  lng              Float?
+  logoUrl          String?
+  welcomePoints    Int     @default(0)
+  minCashback      Float   @default(0)
+  telegramGroupUrl String?
+
   staff        User[]        @relation("BusinessStaff")
-  clients      Client[]
+  memberships  Membership[]
   tiers        LoyaltyTier[]
   rules        LoyaltyRule[]
   transactions Transaction[]
@@ -42,6 +59,11 @@ model Business {
 
 // Note: SUPER_ADMIN is not represented as a User row — it authenticates against
 // ADMIN_USERNAME/ADMIN_PASSWORD env vars directly (see server/auth.ts).
+// User = business owners and staff ONLY. Deliberately kept separate from Customer:
+// owners/staff authenticate with a password/PIN, customers never do — merging them
+// into one "account for everyone" model would mean adding a password field that sits
+// unused on every customer, and would quietly undermine the whole "no passwords for
+// clients" pitch the product is built around.
 model User {
   id           String  @id @default(uuid())
   name         String
@@ -62,16 +84,29 @@ model User {
   createdAt DateTime @default(now())
 }
 
-model Client {
-  id             String  @id @default(uuid())
+// Customer = a single global identity for the end user, phone+Telegram-OTP only,
+// never a password. Replaces the old business-scoped `Client` model — a customer
+// signs in once and can hold a Membership in any number of businesses.
+model Customer {
+  id             String   @id @default(uuid())
   name           String?
-  phoneNumber    String  @unique
+  phoneNumber    String   @unique
   telegramChatId String?
-  points         Int     @default(0)
-  verified       Boolean @default(false)
+  createdAt      DateTime @default(now())
 
+  memberships Membership[]
+  tickets     SupportTicket[]
+}
+
+// One row per (customer, business) — this is where points actually live.
+model Membership {
+  id         String           @id @default(uuid())
+  customerId String
+  customer   Customer         @relation(fields: [customerId], references: [id])
   businessId String
-  business   Business @relation(fields: [businessId], references: [id])
+  business   Business         @relation(fields: [businessId], references: [id])
+  points     Int              @default(0)
+  status     MembershipStatus @default(ACTIVE)
 
   tierId String?
   tier   LoyaltyTier? @relation(fields: [tierId], references: [id])
@@ -80,7 +115,7 @@ model Client {
 
   createdAt DateTime @default(now())
 
-  @@unique([businessId, phoneNumber])
+  @@unique([customerId, businessId])
 }
 
 model LoyaltyTier {
@@ -92,7 +127,7 @@ model LoyaltyTier {
   discount   Int // percent
   color      String   @default("#999999")
 
-  clients Client[]
+  memberships Membership[]
 
   @@unique([businessId, name])
 }
@@ -107,15 +142,30 @@ model LoyaltyRule {
 }
 
 model Transaction {
-  id          String          @id @default(uuid())
-  businessId  String
-  business    Business        @relation(fields: [businessId], references: [id])
-  clientId    String
-  client      Client          @relation(fields: [clientId], references: [id])
-  staffId     String?
-  staff       User?           @relation("StaffTransactions", fields: [staffId], references: [id])
-  amount      Int
-  type        TransactionType
-  description String?
-  createdAt   DateTime        @default(now())
+  id           String          @id @default(uuid())
+  businessId   String
+  business     Business        @relation(fields: [businessId], references: [id])
+  membershipId String
+  membership   Membership      @relation(fields: [membershipId], references: [id])
+  staffId      String?
+  staff        User?           @relation("StaffTransactions", fields: [staffId], references: [id])
+  amount       Int
+  type         TransactionType
+  description  String?
+  createdAt    DateTime        @default(now())
+}
+
+model SupportTicket {
+  id         String   @id @default(uuid())
+  // Not strictly FK'd to Customer — a business owner or staff member might also file
+  // a ticket, and neither of those is a Customer row. Capturing phone/name at
+  // submission time is simpler than an optional-FK-to-two-tables mess.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  phone      String
+  name       String?
+  subject    String
+  message    String
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
 }

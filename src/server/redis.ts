@@ -9,12 +9,15 @@ export const redis = new Redis({
 // --- Key helpers ---
 export const keys = {
   signupVerify: (token: string) => `verify:${token}`,
-  clientOtp: (clientId: string) => `otp:${clientId}`,
-  // Scoped by businessSlug + phone: a phone number can belong to a Client row in
-  // multiple businesses (Client is unique per businessId+phoneNumber), so a login
-  // OTP issued for one business must never validate a login against a different
-  // business's client webapp. Keying by phone alone was a cross-tenant auth bug.
-  clientLoginOtp: (businessSlug: string, phone: string) => `login-otp:${businessSlug}:${phone}`,
+  // Redemption OTP, scoped to a specific membership (business + customer pair) —
+  // unaffected by the Client→Customer/Membership refactor beyond the id it takes.
+  redemptionOtp: (membershipId: string) => `otp:${membershipId}`,
+  // Customer login is global now (Customer is one identity across every business),
+  // so this is correctly scoped by phone alone — no businessSlug needed. The old
+  // per-business Client model needed businessSlug scoping specifically because a
+  // phone could have a separate Client row per business; that whole problem class
+  // goes away once identity is global.
+  customerLoginOtp: (phone: string) => `login-otp:${phone}`,
 };
 
 export type PendingSignup = {
@@ -24,7 +27,7 @@ export type PendingSignup = {
 };
 
 export type PendingRedeem = {
-  clientId: string;
+  membershipId: string;
   points: number;
   code: string;
 };

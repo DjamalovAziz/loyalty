@@ -69,7 +69,7 @@ export const loyaltyRouter = createTRPCRouter({
   overview: ownerProcedure.query(async ({ ctx }) => {
     const businessId = ctx.session.user.businessId!;
     const [clientCount, staffCount, txCount, pointsIssued, pointsRedeemed] = await Promise.all([
-      ctx.db.client.count({ where: { businessId } }),
+      ctx.db.membership.count({ where: { businessId, status: "ACTIVE" } }),
       ctx.db.user.count({ where: { businessId, role: "STAFF" } }),
       ctx.db.transaction.count({ where: { businessId } }),
       ctx.db.transaction.aggregate({

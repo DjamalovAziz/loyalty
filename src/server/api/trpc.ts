@@ -52,9 +52,9 @@ export const staffProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
-/** Requires the CLIENT role. */
-export const clientProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.session.user.role !== "CLIENT") {
+/** Requires the CUSTOMER role. */
+export const customerProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.session.user.role !== "CUSTOMER") {
     throw new TRPCError({ code: "FORBIDDEN" });
   }
   return next({ ctx });

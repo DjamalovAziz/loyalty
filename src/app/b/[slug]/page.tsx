@@ -7,16 +7,16 @@ import { QRCodeSVG } from "qrcode.react";
 import { api } from "~/trpc/react";
 import { useLocale } from "~/lib/i18n/context";
 
-export default function ClientAppPage() {
+export default function BusinessPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: session, status } = useSession();
 
   if (status === "loading") return null;
-  if (!session) return <ClientLogin slug={slug} />;
-  return <ClientDashboard />;
+  if (!session) return <CustomerLogin />;
+  return <BusinessDetail slug={slug} />;
 }
 
-function ClientLogin({ slug }: { slug: string }) {
+function CustomerLogin() {
   const { t } = useLocale();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -35,12 +35,7 @@ function ClientLogin({ slug }: { slug: string }) {
   async function submitOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await signIn("client", {
-      phone_number: phone,
-      otp,
-      businessSlug: slug,
-      redirect: false,
-    });
+    const res = await signIn("customer", { phone_number: phone, otp, redirect: false });
     if (res?.error) setError(t("client.signin.invalidOtp"));
   }
 
@@ -52,7 +47,7 @@ function ClientLogin({ slug }: { slug: string }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            requestOtp.mutate({ phone_number: phone, businessSlug: slug });
+            requestOtp.mutate({ phone_number: phone });
           }}
           className="flex flex-col gap-4"
         >
@@ -95,58 +90,82 @@ function ClientLogin({ slug }: { slug: string }) {
   );
 }
 
-function ClientDashboard() {
+function BusinessDetail({ slug }: { slug: string }) {
   const { t } = useLocale();
-  const me = api.customer.me.useQuery();
-  const tiers = api.customer.myTiers.useQuery();
-  const history = api.customer.myTransactions.useQuery();
+  const utils = api.useUtils();
+  const info = api.customer.membershipFor.useQuery({ slug });
 
-  if (!me.data) return <p className="p-10 text-center text-muted">{t("client.dashboard.loading")}</p>;
+  const join = api.customer.join.useMutation({
+    onSuccess: () => utils.customer.membershipFor.invalidate({ slug }),
+  });
+  const leave = api.customer.leave.useMutation({
+    onSuccess: () => utils.customer.membershipFor.invalidate({ slug }),
+  });
+  const history = api.customer.myTransactions.useQuery(
+    { membershipId: info.data?.membership?.id ?? "" },
+    { enabled: !!info.data?.membership && info.data.membership.status === "ACTIVE" },
+  );
 
-  const nextTier = tiers.data?.find((tier) => tier.minPoints > me.data.points);
-  const progress = nextTier
-    ? Math.min(100, Math.round((me.data.points / nextTier.minPoints) * 100))
-    : 100;
+  if (!info.data) return <p className="p-10 text-center text-muted">{t("client.dashboard.loading")}</p>;
+
+  const { business, membership } = info.data;
+  const isMember = !!membership && membership.status === "ACTIVE";
 
   return (
     <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-10">
       <div className="mb-6 rounded-lg border border-border bg-card p-6 text-center">
-        <p className="text-sm text-muted">{t("client.dashboard.yourBalance")}</p>
-        <p className="text-4xl font-bold">{me.data.points} pts</p>
-        {me.data.tier && (
-          <p className="mt-1 text-sm text-muted">
-            {me.data.tier.name} {t("client.dashboard.tierDiscount")} · {me.data.tier.discount}%
-          </p>
-        )}
-        <div className="mt-4 h-2 w-full rounded-full bg-border">
-          <div className="h-2 rounded-full bg-foreground" style={{ width: `${progress}%` }} />
-        </div>
-        {nextTier && (
-          <p className="mt-1 text-xs text-muted">
-            {nextTier.minPoints - me.data.points} {t("client.dashboard.pointsTo")} {nextTier.name}
-          </p>
+        <h1 className="text-xl font-bold">{business.name}</h1>
+        {business.description && <p className="mt-1 text-sm text-muted">{business.description}</p>}
+        {business.welcomePoints > 0 && !membership && (
+          <p className="mt-2 text-sm">🎁 {business.welcomePoints} pts welcome bonus</p>
         )}
       </div>
 
-      <div className="mb-6 flex flex-col items-center rounded-lg border border-border bg-card p-6">
-        <p className="mb-3 text-sm text-muted">{t("client.dashboard.showToStaff")}</p>
-        <QRCodeSVG value={me.data.id} size={180} />
-      </div>
+      {!isMember ? (
+        <button
+          className="w-full rounded-lg bg-foreground px-4 py-2.5 text-background"
+          onClick={() => join.mutate({ slug })}
+          disabled={join.isPending}
+        >
+          {join.isPending ? "..." : t("client.join.button")}
+        </button>
+      ) : (
+        <>
+          <div className="mb-6 rounded-lg border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted">{t("client.dashboard.yourBalance")}</p>
+            <p className="text-4xl font-bold">{membership.points} pts</p>
+            {membership.tier && (
+              <p className="mt-1 text-sm text-muted">
+                {membership.tier.name} {t("client.dashboard.tierDiscount")} · {membership.tier.discount}%
+              </p>
+            )}
+          </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="mb-3 font-semibold">{t("client.dashboard.recentActivity")}</p>
-        <ul className="flex flex-col gap-2">
-          {history.data?.map((tx) => (
-            <li key={tx.id} className="flex justify-between text-sm">
-              <span>{new Date(tx.createdAt).toLocaleDateString()}</span>
-              <span className={tx.type === "EARN" ? "text-green-600" : "text-blue-600"}>
-                {tx.type === "EARN" ? "+" : "-"}
-                {tx.amount} pts
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+          <div className="mb-6 flex flex-col items-center rounded-lg border border-border bg-card p-6">
+            <p className="mb-3 text-sm text-muted">{t("client.dashboard.showToStaff")}</p>
+            <QRCodeSVG value={membership.customerId} size={180} />
+          </div>
+
+          <div className="mb-6 rounded-lg border border-border bg-card p-4">
+            <p className="mb-3 font-semibold">{t("client.dashboard.recentActivity")}</p>
+            <ul className="flex flex-col gap-2">
+              {history.data?.map((tx) => (
+                <li key={tx.id} className="flex justify-between text-sm">
+                  <span>{new Date(tx.createdAt).toLocaleDateString()}</span>
+                  <span className={tx.type === "EARN" ? "text-green-600" : "text-blue-600"}>
+                    {tx.type === "EARN" ? "+" : "-"}
+                    {tx.amount} pts
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <button className="text-sm text-red-600 underline" onClick={() => leave.mutate({ slug })}>
+            {t("client.leave.button")}
+          </button>
+        </>
+      )}
     </main>
   );
 }
