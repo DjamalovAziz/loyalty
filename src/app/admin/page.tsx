@@ -1,142 +1,205 @@
 "use client";
 
-import { api } from "~/trpc/react";
-import { useLocale } from "~/lib/i18n/context";
+import { useState, useEffect } from "react";
+
+type Ticket = {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+  customer: {
+    name: string | null;
+    phone: string;
+    telegramUsername: string | null;
+  };
+  business: {
+    name: string;
+  };
+};
 
 export default function AdminPage() {
-  const { t } = useLocale();
-  const overview = api.admin.overview.useQuery();
-  const businesses = api.admin.listBusinesses.useQuery();
-  const users = api.admin.listUsers.useQuery();
-  const utils = api.useUtils();
-  const setVerified = api.admin.setBusinessOwnerVerified.useMutation({
-    onSuccess: () => utils.admin.listUsers.invalidate(),
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      const res = await fetch("/api/trpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: Date.now(),
+          json: { limit: 50, cursor: undefined },
+          method: "query",
+          path: ["admin", "listTickets"],
+        }),
+      });
+      const json = await res.json();
+      if (json.result?.items) {
+        setTickets(json.result.items);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+      const res = await fetch("/api/trpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: Date.now(),
+          json: { ticketId, status },
+          method: "mutation",
+          path: ["admin", "updateTicketStatus"],
+        }),
+      });
+      const json = await res.json();
+      if (json.result?.success) {
+        fetchTickets();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const filteredTickets = tickets.filter((ticket) => {
+    if (!filter) return true;
+    const search = filter.toLowerCase();
+    return (
+      ticket.subject.toLowerCase().includes(search) ||
+      ticket.customer.name?.toLowerCase().includes(search) ||
+      ticket.customer.phone.includes(search) ||
+      ticket.business.name.toLowerCase().includes(search)
+    );
   });
 
-  const webhookInfo = api.admin.getTelegramWebhookInfo.useQuery();
-  const setWebhook = api.admin.setTelegramWebhook.useMutation({
-    onSuccess: () => webhookInfo.refetch(),
-  });
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "OPEN":
+        return "bg-red-100 text-red-800";
+      case "IN_PROGRESS":
+        return "bg-yellow-100 text-yellow-800";
+      case "RESOLVED":
+        return "bg-green-100 text-green-800";
+      case "CLOSED":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
-  return (
-    <main className="min-h-screen bg-background mx-auto max-w-5xl px-4 py-10">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t("admin.title")}</h1>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">Loading...</p>
       </div>
+    );
+  }
 
-      <section className="mb-10 rounded-lg border border-border bg-card p-4">
-        <h2 className="mb-3 text-lg font-semibold">{t("admin.webhook.title")}</h2>
-        {webhookInfo.data && (
-          <div className="mb-3 text-sm text-muted">
-            <p>
-              {t("admin.webhook.url")}: {webhookInfo.data.url || <span className="text-red-600">{t("admin.webhook.notSet")}</span>}
-            </p>
-            <p>{t("admin.webhook.pending")}: {webhookInfo.data.pending_update_count}</p>
-            {webhookInfo.data.last_error_message && (
-              <p className="text-red-600">
-                {t("admin.webhook.lastError")}: {webhookInfo.data.last_error_message}
-              </p>
-            )}
-          </div>
-        )}
-        <button
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-          onClick={() => setWebhook.mutate()}
-          disabled={setWebhook.isPending}
-        >
-          {setWebhook.isPending ? t("admin.webhook.registering") : t("admin.webhook.register")}
-        </button>
-        {setWebhook.isError && (
-          <p className="mt-2 text-sm text-red-600">{setWebhook.error.message}</p>
-        )}
-        {setWebhook.isSuccess && (
-          <p className="mt-2 text-sm text-green-700">{t("admin.webhook.success")}</p>
-        )}
-      </section>
-
-      {overview.data && (
-        <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-5">
-          <Stat label={t("admin.stat.businesses")} value={overview.data.businessCount} />
-          <Stat label={t("admin.stat.owners")} value={overview.data.ownerCount} />
-          <Stat label={t("admin.stat.staff")} value={overview.data.staffCount} />
-          <Stat label={t("admin.stat.clients")} value={overview.data.clientCount} />
-          <Stat label={t("admin.stat.transactions")} value={overview.data.txCount} />
-        </div>
-      )}
-
-      <section className="mb-10">
-        <h2 className="mb-3 text-lg font-semibold">{t("admin.businesses.title")}</h2>
-        <div className="overflow-x-auto rounded border border-border bg-card">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-black/5 dark:bg-white/5">
-              <tr>
-                <th className="p-2">{t("admin.businesses.name")}</th>
-                <th className="p-2">{t("admin.businesses.slug")}</th>
-                <th className="p-2">{t("admin.businesses.owner")}</th>
-                <th className="p-2">{t("admin.businesses.clients")}</th>
-                <th className="p-2">{t("admin.businesses.staff")}</th>
-                <th className="p-2">{t("admin.businesses.transactions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {businesses.data?.map((b) => (
-                <tr key={b.id} className="border-b last:border-0">
-                  <td className="p-2">{b.name}</td>
-                  <td className="p-2 text-muted">{b.slug}</td>
-                  <td className="p-2">{b.owner.name} ({b.owner.phoneNumber})</td>
-                  <td className="p-2">{b._count.memberships}</td>
-                  <td className="p-2">{b._count.staff}</td>
-                  <td className="p-2">{b._count.transactions}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">{t("admin.users.title")}</h2>
-        <div className="overflow-x-auto rounded border border-border bg-card">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-black/5 dark:bg-white/5">
-              <tr>
-                <th className="p-2">{t("admin.users.name")}</th>
-                <th className="p-2">{t("admin.users.phone")}</th>
-                <th className="p-2">{t("admin.users.role")}</th>
-                <th className="p-2">{t("admin.users.business")}</th>
-                <th className="p-2">{t("admin.users.verified")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.data?.map((u) => (
-                <tr key={u.id} className="border-b last:border-0">
-                  <td className="p-2">{u.name}</td>
-                  <td className="p-2 text-muted">{u.phoneNumber}</td>
-                  <td className="p-2">{u.role}</td>
-                  <td className="p-2">{u.business?.name ?? "—"}</td>
-                  <td className="p-2">
-                    <button
-                      className={u.verified ? "text-green-700" : "text-red-600 underline"}
-                      onClick={() => setVerified.mutate({ userId: u.id, verified: !u.verified })}
-                    >
-                      {u.verified ? t("admin.users.verified") : t("admin.users.unverified")}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-sm text-muted">{label}</p>
-      <p className="text-2xl font-semibold">{value}</p>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-bold text-gray-900">LoyaltySphere</h1>
+            </div>
+            <div className="flex items-center">
+              <span className="text-gray-500">Admin</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Support Tickets</h2>
+            <div className="text-sm text-gray-500">
+              Total: {tickets.length}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search tickets..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {filteredTickets.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No tickets found</p>
+          ) : (
+            <div className="space-y-4">
+              {filteredTickets.map((ticket) => (
+                <div key={ticket.id} className="border rounded-lg p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-1">
+                        {ticket.subject}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {new Date(ticket.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${getStatusColor(ticket.status)}`}
+                    >
+                      {ticket.status}
+                    </span>
+                  </div>
+
+                  <p className="text-gray-700 mb-4">{ticket.message}</p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-500">
+                      <span className="font-medium">Customer:</span>{" "}
+                      {ticket.customer.name || ticket.customer.phone}
+                      {ticket.customer.telegramUsername && (
+                        <span> (@{ticket.customer.telegramUsername})</span>
+                      )}
+                      <span className="mx-2">•</span>
+                      <span className="font-medium">Business:</span> {ticket.business.name}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {ticket.status !== "RESOLVED" && ticket.status !== "CLOSED" && (
+                        <button
+                          onClick={() => updateTicketStatus(ticket.id, "RESOLVED")}
+                          className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                        >
+                          Resolve
+                        </button>
+                      )}
+                      {ticket.status !== "CLOSED" && (
+                        <button
+                          onClick={() => updateTicketStatus(ticket.id, "CLOSED")}
+                          className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+                        >
+                          Close
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

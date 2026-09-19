@@ -4,171 +4,222 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL") // pgbouncer transaction pooler (port 6543)
-  directUrl = env("DIRECT_URL")   // direct connection for migrations (port 5432)
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
-  SUPER_ADMIN
-  BUSINESS_OWNER
+  OWNER
   STAFF
+  ADMIN
 }
 
-enum MembershipStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum TriggerType {
-  VISIT
-  PURCHASE
+enum StaffRole {
+  CASHIER
+  MANAGER
+  OWNER
 }
 
 enum TransactionType {
   EARN
   REDEEM
+  ADJUSTMENT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum LoyaltyRuleType {
+  REFERRAL
+  BIRTHDAY
+  ANNIVERSARY
+  SPENDING_THRESHOLD
+  VISIT_COUNT
+  INACTIVITY
+  TIER_UPGRADE
+  PROMOTIONAL
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String?  @unique
+  name        String?
+  password    String?
+  role        Role     @default(STAFF)
+  businessId  String?
+  staffRole   StaffRole @default(CASHIER)
+  pin         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ownedBusiness  Business?  @relation("BusinessOwner")
+  staffBusiness  Business? @relation("BusinessStaff", fields: [businessId], references: [id], onDelete: Cascade)
+  staffTickets   SupportTicket[] @relation("StaffTickets")
+
+  @@map("users")
+}
+
+model Customer {
+  id            String    @id @default(cuid())
+  phone         String    @unique
+  name          String?
+  telegramId    String?   @unique
+  telegramUsername String?
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  memberships   Membership[]
+  transactions  Transaction[]
+  tickets       SupportTicket[]
+  referrals     SupportTicket[] @relation("ReferredBy")
+
+  @@map("customers")
 }
 
 model Business {
-  id        String   @id @default(uuid())
-  slug      String   @unique
-  name      String
-  ownerId   String   @unique
-  owner     User     @relation("OwnedBusiness", fields: [ownerId], references: [id])
-  createdAt DateTime @default(now())
-
-  // Catalog fields — no hard enum for category on purpose: a small, evolving set of
-  // free-text values ("barber", "market", "medicine"...) isn't worth a migration every
-  // time a new business type shows up.
-  // Not collected at signup time (the signup form only asks name/phone/password) —
-  // defaults so business.create() during Telegram verification doesn't need it up
-  // front; the owner can set a real category from the dashboard later.
-  category         String  @default("general")
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
   description      String?
+  category         String?
   address          String?
-  lat              Float?
-  lng              Float?
-  logoUrl          String?
-  welcomePoints    Int     @default(0)
-  minCashback      Float   @default(0)
-  telegramGroupUrl String?
+  latitude         Float?
+  longitude        Float?
+  logo             String?
+  isActive         Boolean  @default(true)
+  telegramGroup    String?
+  welcomePoints    Int      @default(0)
+  minimumCashback  Int      @default(0)
+  pointsExpiryDays Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  staff        User[]        @relation("BusinessStaff")
-  memberships  Membership[]
-  tiers        LoyaltyTier[]
-  rules        LoyaltyRule[]
-  transactions Transaction[]
+  ownerId          String   @unique
+  owner            User      @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships      Membership[]
+  transactions     Transaction[]
+  loyaltyRules     LoyaltyRule[]
+  supportTickets   SupportTicket[]
+  staff            User[]    @relation("BusinessStaff")
+  locations        BusinessLocation[]
+
+  @@map("businesses")
 }
 
-// Note: SUPER_ADMIN is not represented as a User row — it authenticates against
-// ADMIN_USERNAME/ADMIN_PASSWORD env vars directly (see server/auth.ts).
-// User = business owners and staff ONLY. Deliberately kept separate from Customer:
-// owners/staff authenticate with a password/PIN, customers never do — merging them
-// into one "account for everyone" model would mean adding a password field that sits
-// unused on every customer, and would quietly undermine the whole "no passwords for
-// clients" pitch the product is built around.
-model User {
-  id           String  @id @default(uuid())
-  name         String
-  phoneNumber  String  @unique
-  passwordHash String?
-  pin          String?
-  role         Role
-  verified     Boolean @default(false)
-  telegramChatId String?
+model BusinessLocation {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  ownedBusiness Business? @relation("OwnedBusiness")
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  businessId String?
-  business   Business? @relation("BusinessStaff", fields: [businessId], references: [id])
-
-  redemptionsInitiated Transaction[] @relation("StaffTransactions")
-
-  createdAt DateTime @default(now())
+  @@map("business_locations")
 }
 
-// Customer = a single global identity for the end user, phone+Telegram-OTP only,
-// never a password. Replaces the old business-scoped `Client` model — a customer
-// signs in once and can hold a Membership in any number of businesses.
-model Customer {
-  id             String   @id @default(uuid())
-  name           String?
-  phoneNumber    String   @unique
-  telegramChatId String?
-  createdAt      DateTime @default(now())
-
-  memberships Membership[]
-  tickets     SupportTicket[]
-}
-
-// One row per (customer, business) — this is where points actually live.
 model Membership {
-  id         String           @id @default(uuid())
-  customerId String
-  customer   Customer         @relation(fields: [customerId], references: [id])
-  businessId String
-  business   Business         @relation(fields: [businessId], references: [id])
-  points     Int              @default(0)
-  status     MembershipStatus @default(ACTIVE)
+  id           String   @id @default(cuid())
+  customerId   String
+  businessId   String
+  points       Int      @default(0)
+  tier         String   @default("basic")
+  isActive     Boolean  @default(true)
+  joinedAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  tierId String?
-  tier   LoyaltyTier? @relation(fields: [tierId], references: [id])
-
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
   transactions Transaction[]
-
-  createdAt DateTime @default(now())
 
   @@unique([customerId, businessId])
-}
-
-model LoyaltyTier {
-  id         String   @id @default(uuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-  name       String // BRONZE / SILVER / GOLD
-  minPoints  Int
-  discount   Int // percent
-  color      String   @default("#999999")
-
-  memberships Membership[]
-
-  @@unique([businessId, name])
-}
-
-model LoyaltyRule {
-  id            String      @id @default(uuid())
-  businessId    String
-  business      Business    @relation(fields: [businessId], references: [id])
-  name          String
-  triggerType   TriggerType
-  pointsAwarded Int
+  @@map("memberships")
 }
 
 model Transaction {
-  id           String          @id @default(uuid())
-  businessId   String
-  business     Business        @relation(fields: [businessId], references: [id])
-  membershipId String
-  membership   Membership      @relation(fields: [membershipId], references: [id])
-  staffId      String?
-  staff        User?           @relation("StaffTransactions", fields: [staffId], references: [id])
-  amount       Int
-  type         TransactionType
-  description  String?
-  createdAt    DateTime        @default(now())
+  id            String          @id @default(cuid())
+  type          TransactionType
+  amount        Int
+  description   String?
+  membershipId  String
+  businessId    String
+  customerId    String
+  actorId       String?
+  actorType     String?
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+
+  membership    Membership      @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer      Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  adjustments   Transaction[]   @relation("TransactionAdjustment")
+  original      Transaction?    @relation("TransactionAdjustment", fields: [originalTransactionId], references: [id], onDelete: SetNull)
+  originalTransactionId String?
+
+  @@map("transactions")
+}
+
+model LoyaltyRule {
+  id          String            @id @default(cuid())
+  type        LoyaltyRuleType
+  name        String
+  description String?
+  isActive    Boolean           @default(true)
+  config      Json
+  businessId  String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_rules")
 }
 
 model SupportTicket {
-  id         String   @id @default(uuid())
-  // Not strictly FK'd to Customer — a business owner or staff member might also file
-  // a ticket, and neither of those is a Customer row. Capturing phone/name at
-  // submission time is simpler than an optional-FK-to-two-tables mess.
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id])
-  phone      String
-  name       String?
-  subject    String
-  message    String
-  status     String   @default("OPEN")
-  createdAt  DateTime @default(now())
+  id          String              @id @default(cuid())
+  customerId  String
+  businessId  String
+  subject     String
+  message     String
+  status      SupportTicketStatus @default(OPEN)
+  priority    String              @default("normal")
+  assignedToId String?
+  resolvedAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  assignedTo  User?     @relation("StaffTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  referrer    Customer? @relation("ReferredBy", fields: [referrerId], references: [id], onDelete: SetNull)
+  referrerId  String?
+
+  @@map("support_tickets")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actorType   String?
+  action      String
+  businessId  String?
+  customerId  String?
+  resourceType String?
+  resourceId  String?
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
 }

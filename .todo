@@ -1,65 +1,427 @@
-Ты — Senior Full-Stack Инженер. Реализуй модуль каталога, подписок на программы лояльности и техподдержки для LoyaltySphere (Next.js 14 App Router, tRPC v11, Prisma, Supabase Postgres, Upstash Redis).
+# LoyaltySphere — staged TODO
 
-Главный принцип: Простая БД, понятная логика, ноль овер-инжиниринга.
+Порядок основан на **urgency + dependency**, а не на интересности.
 
----
-
-### 1. Изменения в БД (prisma/schema.prisma)
-
-1. Модель User:
-   - Единый аккаунт для всех (и для клиентов, и для владельцев).
-   - Поля: id, phone (@unique), name, password.
-   - Связи: ownedBusinesses (Business[]), memberships (ClientMembership[]), tickets (SupportTicket[]).
-
-2. Модель Business:
-   - Добавить поля: category (String — без жестких Enum, простая строка: "barber", "market", "medicine" и т.д.), description (String?), address (String?), lat (Float?), lng (Float?), logoUrl (String?), welcomePoints (Int @default(0)), minCashback (Float @default(0)), telegramGroupUrl (String?).
-
-3. Модель ClientMembership (участие клиента в конкретном бизнесе):
-   - Поля: id, userId, businessId, points (Int @default(0)), status (String @default("ACTIVE") — "ACTIVE" или "INACTIVE").
-   - Уникальный индекс: @@unique([userId, businessId]).
-
-4. Модель SupportTicket:
-   - Поля: id, userId, subject, message, status (String @default("OPEN")), createdAt.
+> **Phase 0 = нельзя доверять системе реальные денежно-эквивалентные баллы.**
+> Обновляй этот файл по мере выполнения — он должен отражать реальное состояние проекта.
 
 ---
 
-### 2. Процедура поиска и фильтрации (tRPC `business.explore`)
+# PHASE 0 — Security, correctness & operational safety
 
-Создай эндпоинт `business.explore` с cursor-пагинацией.
-Входные параметры (Zod):
-- `searchQuery` (string, optional) — поиск по `name` (ILIKE, insensitve).
-- `category` (string, optional) — фильтр по категории бизнеса.
-- `hasWelcomeBonus` (boolean, optional) — `welcomePoints > 0`.
-- `minCashback` (number, optional) — `minCashback >= val`.
-- `sortBy` — "NEWEST" (по дате), "POPULAR" (по кол-ву клиентов), "CASHBACK" (по % кэшбэка).
+**Цель:** исключить очевидные security, integrity и silent-failure риски.
 
-* Примечание по гео: Не усложняй PostGIS. Если переданы lat/lng пользователя, считай расстояние по стандартной формуле Гаверсинуса прямо в JS при маппинге результатов или через простой raw-query.
+### 1. Rate limiting
+
+Защитить:
+
+* `customer.requestLoginOtp`
+* `staff.initiateRedeem`
+* owner/staff login
+* другие OTP/PIN/auth mutations.
+
+Использовать `@upstash/ratelimit` + существующий Redis.
+
+Нужно:
+
+* limits по IP/phone/account/business;
+* строгие OTP/auth limits;
+* backoff/lockout для staff PIN;
+* безопасные ошибки без account enumeration.
+
+**Done:** brute-force/OTP spam throttled, legitimate users не блокируются навсегда, limits задокументированы.
+
+### 2. Atomicity & concurrency
+
+Гарантировать:
+
+* нельзя потратить points дважды;
+* concurrent earn/redeem сохраняет корректный balance;
+* transaction + balance update атомарны.
+
+Использовать `prisma.$transaction` + conditional update `points >= X`.
+
+**Done:** concurrent redeem не даёт negative/double spend; failure не оставляет partial state.
+
+### 3. Transaction adjustments
+
+Добавить `ADJUSTMENT`.
+
+Каждая correction:
+
+* ссылается на original transaction;
+* содержит reason;
+* actor;
+* timestamp;
+* атомарно меняет balance;
+* не изменяет/не удаляет original.
+
+Изначально — owner-only.
+
+**Done:** исторические transactions immutable и каждая correction полностью аудируема.
+
+### 4. DB balance invariant
+
+Добавить:
+
+`CHECK (points >= 0)`
+
+**Done:** DB отвергает negative balance; migration воспроизводима на fresh DB.
+
+### 5. Monitoring & alerting
+
+Мониторить:
+
+* Telegram webhook/delivery;
+* Redis availability/quota;
+* auth failures/spikes;
+* transaction errors;
+* application exceptions.
+
+Минимум: Sentry + scheduled webhook health check + alert на Telegram `last_error_message` + critical infrastructure alerts.
+
+**Done:** critical failure автоматически обнаруживается и содержит достаточно context для debugging.
+
+### 6. Critical automated tests
+
+Обязательно протестировать:
+
+* earn;
+* redeem;
+* concurrent redeem;
+* concurrent earn/redeem;
+* insufficient balance;
+* rollback;
+* adjustment;
+* authentication;
+* membership/tenant isolation.
+
+**Особенно:** реальный concurrency test для redeem race condition.
+
+### 7. CI
+
+На каждый push/PR:
+
+`typecheck + lint + tests + Prisma validation/generation + build`
+
+**Done:** broken PR не может незаметно попасть в production.
+
+### 8. Auth & tenant-isolation audit
+
+Проверить:
+
+* customer isolation;
+* business isolation;
+* staff/owner business scope;
+* ID substitution attacks;
+* Telegram spoofing;
+* OTP reuse/expiry;
+* session/token invalidation;
+* server-side authorization каждой mutation.
+
+**Done:** ни одно authorization decision не зависит только от client UI.
+
+> **После Phase 0 реальные business points можно считать защищёнными на базовом уровне.**
 
 ---
 
-### 3. Экран `/me` и Экран `/b/[slug]`
+# PHASE 1 — Core usable product
 
-1. Экран `/me` (Профиль пользователя):
-   - Отображает единый QR-код (содержит `userId`).
-   - Выводит список всех активных подписок (`ClientMembership`) с текущими балансами баллов.
+**Цель:** сделать существующую систему реально удобной для Business и Customer.
 
-2. Экран `/b/[slug]` (Страница бизнеса):
-   - Показывает баланс пользователя в этом бизнесе.
-   - Кнопка "Вступить" (`client.join`): создаёт `ClientMembership`. Если у бизнеса задан `welcomePoints`, сразу начисляет их. Если есть `telegramGroupUrl`, отдаёт ссылку на чат.
-   - Кнопка "Выйти" (`client.leave`): меняет `status` на "INACTIVE" (баллы обнуляются).
+### 9. Business profile editor
+
+В `/dashboard` редактировать:
+category, description, address, latitude/longitude, logo, welcome points, minimum cashback, Telegram group.
+
+**Done:** owner редактирует все поля; validation работает; изменения видны в каталоге; другой Business недоступен.
+
+### 10. Customer navigation
+
+Добавить понятные ссылки на:
+`/explore`, `/me`, business pages, login/signup, support.
+
+**Done:** новый customer не должен вручную вводить URLs.
+
+### 11. Customer catalog & membership UX
+
+Собрать coherent flow:
+discovery → business details → join/leave → membership → points → loyalty information.
+
+### 12. Support administration
+
+Добавить `/admin` или dashboard support UI:
+
+* list/filter tickets;
+* details;
+* close/reopen;
+* timestamps;
+* customer/business context.
+
+Telegram остаётся дополнительным notification channel, но не единственным UI.
+
+### 13. Points expiry
+
+Определить:
+
+* expire или нет;
+* период;
+* rolling/fixed;
+* inactive customers;
+* warnings;
+* owner configuration;
+* отображение в history.
+
+Expiry должна быть отдельной auditable transaction/event, а не скрытым изменением balance.
+
+### 14. Audit log
+
+Логировать:
+actor, actor type, business, action, customer, transaction, timestamp, metadata/reason, IP/device где уместно.
+
+Покрыть:
+earn, redeem, adjustment, staff changes, permissions, business profile, memberships, auth/security.
+
+Добавить owner view вроде: **«Что этот сотрудник сделал сегодня?»**
+
+### 15. Staff permission tiers
+
+Заменить flat STAFF на:
+
+* `CASHIER` — check-in, earn, redeem;
+* `MANAGER` — cashier + adjustments + staff operations;
+* `OWNER` — business settings, financial/product settings, staff, audit, corrections.
+
+Authorization только server-side.
+
+### 16. Camera QR scanning
+
+Использовать `html5-qrcode`:
+
+`camera → scan QR → resolve customer → show customer → confirm action`
+
+Учесть camera permissions, invalid QR, duplicate scans, mobile UI и manual-ID fallback.
 
 ---
 
-### 4. Техподдержка (`/support`)
+# PHASE 2 — Growth & retention
 
-1. tRPC Mutation `support.create`:
-   - Принимает `subject` и `message`.
-   - Создаёт запись в `SupportTicket`.
-   - Отправляет асинхронное сообщение в Telegram-чат разработчиков с данными: `userId`, `phone`, `subject`, `message`.
+**Цель:** превратить points tracker в продукт, за который Business готов платить.
+
+### 17. Owner analytics
+
+Показать:
+
+* total/active/new customers;
+* top/high-value customers;
+* lapsed/at-risk;
+* tier distribution;
+* issued/redeemed points;
+* outstanding points liability;
+* earn vs redeem;
+* transaction volume;
+* date ranges.
+
+### 18. Broadcast & re-engagement
+
+Telegram campaigns для:
+
+* inactive customers;
+* birthdays;
+* new tiers;
+* promotions;
+* new products/services;
+* expiry reminders.
+
+Нужны segmentation, rate limiting, delivery tracking, opt-out/preferences, anti-spam и templates.
+
+### 19. Referral program
+
+Flow:
+
+`A gets referral → B joins → B qualifying first transaction → A reward`
+
+Опционально welcome bonus для B.
+
+Защитить от self-referral, duplicate rewards, farming и повторной награды.
+
+Интегрировать с `LoyaltyRule / REFERRAL`.
+
+### 20. Loyalty rules / campaign engine
+
+Добавить deterministic/auditable rules для:
+first transaction, referral, birthday, anniversary, spending threshold, visit count, inactivity, tier upgrade, promotional period.
+
+Защитить от duplicate execution.
+
+### 21. Customer segmentation
+
+Сегменты:
+new, active, high-value, lapsed, at-risk, VIP, recently joined, never redeemed.
+
+Использовать их в analytics и messaging.
+
+### 22. Multi-location
+
+Поддержать:
+
+* branches;
+* branch staff;
+* branch permissions;
+* branch transactions;
+* branch analytics;
+* customer activity by location;
+* optional business-wide reporting.
 
 ---
 
-### Требования к коду:
-- Полная типизация TypeScript + Zod.
-- Использовать `prisma.$transaction` для атомарного создания подписки и начисления приветственных баллов.
-- Простой и чистый UI на Tailwind CSS без лишних библиотек.
+# PHASE 3 — Commercialization & production readiness
+
+**Цель:** превратить систему в коммерческий SaaS в Узбекистане.
+
+### 23. Billing & subscriptions
+
+Исследовать Payme, Click и другие подходящие providers.
+
+Нужны:
+plans, pricing, subscription state, payment records, invoices/receipts, grace period, failed-payment handling, freeze/downgrade, reactivation.
+
+**Важно:** payment state не должен удалять business data.
+
+### 24. Terms of Service
+
+Покрыть:
+business/customer accounts, points, prohibited use, payments, cancellation, availability, liability, termination, disputes.
+
+Перед launch — соответствующий legal review.
+
+### 25. Privacy Policy
+
+Покрыть:
+data collection/use/storage/retention, third parties, Telegram, analytics/error monitoring, customer rights, deletion/export.
+
+### 26. Uzbekistan compliance / data residency
+
+Фактически определить:
+DB region, backups, auth data, logs, Telegram flows, monitoring, payment providers и processors.
+
+После этого определить применимые требования Узбекистана с qualified legal advice при необходимости.
+
+### 27. Production security review
+
+Перед meaningful commercial usage проверить:
+auth, authorization, tenant isolation, OTP/PIN abuse, CSRF, webhook security, secrets, DB/API access, rate limiting, sensitive logging, PII exposure, errors, dependencies.
+
+---
+
+# PHASE 4 — Engineering maturity
+
+**Цель:** сделать проект поддерживаемым и устойчивым к regression.
+
+### 28. Expanded test coverage
+
+После критических Phase 0 tests расширить coverage на:
+customer, business, staff, owner, auth, Telegram, membership lifecycle, loyalty rules, referrals, expiry, adjustments, permissions, multi-location, billing.
+
+Приоритет — business-critical paths, а не arbitrary percentage.
+
+### 29. Prisma/local development fallback
+
+Для restricted networks документировать/автоматизировать Prisma Engine fallback:
+
+offline workflow, pinned versions, cached engines, environment setup или setup script.
+
+**Done:** новый contributor может запустить проект в restricted network.
+
+### 30. Developer setup documentation
+
+Документировать:
+Node, env vars, DB, Prisma, Redis, Telegram, local webhook, tests, lint/typecheck, build, deployment, troubleshooting.
+
+README и реальный setup должны оставаться синхронизированными.
+
+### 31. Database migration discipline
+
+Правила:
+
+* каждое schema change → migration;
+* fresh DB compatibility;
+* migration testing;
+* destructive migrations требуют review;
+* production migrations документируются.
+
+Не менять production DB/schema вручную.
+
+### 32. Operational runbook
+
+Описать response для:
+Telegram/Redis/DB outage, failed deployment, stuck transactions, incorrect balance, suspicious staff activity, payment failures, auth abuse.
+
+Для каждого: где смотреть, что можно менять, что нельзя менять вручную, rollback и escalation.
+
+---
+
+# PHASE ORDER
+
+### Phase 0 — Safety
+
+1. Rate limiting
+2. Atomicity/concurrency
+3. Transaction adjustments
+4. `points >= 0` DB constraint
+5. Monitoring
+6. Critical tests
+7. CI
+8. Auth/tenant audit
+
+### Phase 1 — Core Product
+
+9. Profile editor
+10. Navigation
+11. Customer UX
+12. Support admin
+13. Point expiry
+14. Audit log
+15. Staff permissions
+16. Camera QR
+
+### Phase 2 — Growth
+
+17. Analytics
+18. Messaging/reactivation
+19. Referrals
+20. Loyalty rules
+21. Segmentation
+22. Multi-location
+
+### Phase 3 — Commercialization
+
+23. Billing
+24. ToS
+25. Privacy Policy
+26. Uzbekistan compliance
+27. Security review
+
+### Phase 4 — Engineering
+
+28. Expanded tests
+29. Prisma fallback
+30. Developer docs
+31. Migration discipline
+32. Operational runbook
+
+---
+
+# IMMEDIATE NEXT ACTIONS
+
+Выполнять именно в таком порядке:
+
+1. **Rate limiting** — OTP, staff PIN/auth и auth-adjacent mutations.
+2. **Critical concurrency tests** — доказать корректность earn/redeem.
+3. **CI** — typecheck + lint + tests + build.
+4. **Business profile editor** — сделать каталог управляемым.
+5. **Transaction adjustments** — безопасно исправлять реальные ошибки.
+6. **Monitoring** — видеть сбои до жалоб клиентов.
+7. **Auth/tenant audit** — проверить все server-side boundaries.
+
+После стабилизации — продолжать Phase 1 по порядку.

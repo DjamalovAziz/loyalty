@@ -1,4 +1,45 @@
+# Dependencies
 node_modules
+
+# Build outputs
 .next
+out
+build
+dist
+
+# Environment files
 .env
+.env.local
+.env.test
+.env.development.local
+.env.production.local
+
+# Test coverage
+coverage
+
+# TypeScript build info
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Vercel
+.vercel
+
+# Logs
 *.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.cache
+.parcel-cache

@@ -1,76 +1,80 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "~/trpc/react";
-import { useLocale } from "~/lib/i18n/context";
 
 export default function SupportPage() {
-  const { t } = useLocale();
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [sent, setSent] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
-  const create = api.support.create.useMutation({
-    onSuccess: () => setSent(true),
-  });
-
-  if (sent) {
-    return (
-      <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-16 text-center">
-        <p>{t("support.sent")}</p>
-      </main>
-    );
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+  };
 
   return (
-    <main className="min-h-screen bg-background mx-auto max-w-md px-4 py-16">
-      <h1 className="mb-6 text-xl font-bold">{t("support.title")}</h1>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          create.mutate({ phone, name: name || undefined, subject, message });
-        }}
-        className="flex flex-col gap-4"
-      >
-        <input
-          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
-          placeholder={t("support.phone")}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          required
-        />
-        <input
-          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
-          placeholder={t("support.name")}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
-          placeholder={t("support.subject")}
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          required
-        />
-        <textarea
-          className="rounded border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted"
-          placeholder={t("support.message")}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={5}
-          required
-        />
-        {create.isError && <p className="text-sm text-red-600">{create.error.message}</p>}
-        <button
-          className="rounded-lg bg-foreground px-4 py-2.5 text-background disabled:opacity-50"
-          type="submit"
-          disabled={create.isPending}
-        >
-          {create.isPending ? "..." : t("support.submit")}
-        </button>
-      </form>
-    </main>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-bold text-gray-900">LoyaltySphere</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <a href="/explore" className="text-gray-500 hover:text-gray-900">Explore</a>
+              <a href="/me" className="text-gray-500 hover:text-gray-900">My Account</a>
+              <span className="text-gray-900 font-medium">Support</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Support</h2>
+
+          {submitted ? (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+              Your support request has been submitted. We will get back to you soon.
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Message
+                </label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  required
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700"
+              >
+                Submit Request
+              </button>
+            </form>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
