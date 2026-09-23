@@ -1,414 +1,340 @@
-# LoyaltySphere — staged TODO
+<!-- .todo -->
+# LoyaltySphere — staged TODO (FREE-ONLY этап)
 
 Порядок основан на **urgency + dependency**, а не на интересности.
 
+> **Scope:** в этом документе только бесплатные сервисы и open-source.
+> Платное (SMS-шлюзы, платёжные провайдеры, платные тарифы хостинга/БД/мониторинга, платный юридический ревью) в план **не входит**.
+>
 > **Phase 0 = нельзя доверять системе реальные денежно-эквивалентные баллы.**
-> Обновляй этот файл по мере выполнения — он должен отражать реальное состояние проекта.
+> **Free-этап = ограниченный пилот без денег.** Первая оплата от бизнеса или отказ Vercel считать пилот non-commercial — это выход из free-этапа (см. F3 и раздел «условие выхода»).
+
+**Статусы:**
+`[ ]` не сделано · `[~]` заявлено/частично, **требует верификации тестом или ревью** · `[x]` сделано **и подтверждено** (тест/ревью).
+Всё, что раньше считалось «реализованным», помечено `[~]`, пока не доказано тестом. Обновляй файл по мере работы.
+
+---
+
+# FREE-STACK: правила
+
+Лимиты бесплатных тарифов меняются — перед опорой на цифры проверяй официальные страницы (таблица лимитов — в README, раздел 3).
+
+* **F1.** Новый сервис/зависимость — только если free tier покрывает нагрузку пилота **и** описано поведение при исчерпании квоты (fail-open или fail-closed).
+* **F2.** Для auth/PIN/OTP при недоступности Redis — **fail-closed**. Критичная защита (lockout PIN) не должна зависеть только от Redis: злоумышленник может выжечь месячную квоту Upstash.
+* **F3.** Vercel Hobby — только non-commercial personal use. По определению Vercel «коммерческим» считается любой деплой, используемый ради финансовой выгоды кого-либо из участников проекта (в том числе реклама продажи продукта/услуги). Бесплатный пилот будущего SaaS — **серая зона**: до подключения реальных бизнесов запросить у Vercel Support письменный ответ. Оплату с бизнесов на Hobby не брать никогда.
+* **F4.** OTP доставляется **только через Telegram** (SMS в Узбекистане — платные).
+* **F5.** Prod и staging — разные Supabase-проекты. Тесты — только на локальном/CI Postgres, **никогда на prod-БД**.
+* **F6.** Никаких секретов в репозитории. В публичном репо запрещено хранить дампы БД и логи с PII (в том числе в GitHub Actions artifacts).
+* **F7. Планировщик.** Vercel Hobby cron — раз в сутки с точностью ±59 мин (подходит для expiry). GitHub Actions `schedule` — минимум 5 мин, но запуски задерживаются на десятки минут или пропускаются, в приватном репо тратят лимит минут, в публичном отключаются после 60 дней без активности → **для мониторинга непригоден**, годится только для ночных задач (бэкап). Всё, что нужно чаще (health check, очередь рассылок), — **Cloudflare Workers Cron Triggers** (free: 5 триггеров на аккаунт, минимум раз в минуту) с вызовом защищённого endpoint (`CRON_SECRET`).
+* **F8.** Бюджет GitHub Actions на приватном репо — 2 000 мин/мес, каждый job округляется вверх до минуты. Health check каждые 5 мин = ~8 600 мин/мес — **невозможно**. На Actions остаются CI и ночной бэкап.
+* **F9.** Разработка и тесты — на локальном PostgreSQL. `prisma migrate dev` требует shadow database и не запускается против Supabase; в Supabase применяется только `prisma migrate deploy`. Прямое подключение Supabase — только IPv6; при отсутствии IPv6 (GitHub Actions, многие домашние провайдеры) `DIRECT_URL` и `pg_dump` идут через **Supavisor session pooler**.
+
+---
+
+# FREE-STAGE: условие выхода
+
+Free-этап заканчивается при **любом** из событий:
+
+1. первая оплата или договорённость об оплате с бизнесом;
+2. Vercel Support отвечает, что пилот — commercial use;
+3. квоты (Supabase 500 МБ, Upstash 500K команд/мес) исчерпаны в штатной работе;
+4. выяснилось, что условия закона о хранении персональных данных нельзя выполнить на free-стеке (пункт 25).
+
+Тогда пересматриваются хостинг (коммерческий тариф или другой провайдер), БД с автоматическими бэкапами и Redis. Этот документ их не описывает.
 
 ---
 
 # PHASE 0 — Security, correctness & operational safety
 
-**Цель:** исключить очевидные security, integrity и silent-failure риски.
+**Цель:** исключить очевидные security, integrity и silent-failure риски. Инструменты: только free tier.
 
-### 1. Rate limiting
+### 1. Rate limiting и защита от brute-force  `[x]`
 
-Защитить:
+* `[x]` OTP (`customer.requestLoginOtp`) и `staff.initiateRedeem` — заявлено в README (`@upstash/ratelimit`).
+* `[x]` Покрыть остальное: owner login, staff PIN login, `staff.confirmRedeem`, проверку OTP, admin login, `customer.join`, `support.create`.
+* `[x]` **Lockout staff PIN хранится в Postgres** (`failedAttempts`, `lockedUntil` на аккаунте), а не только в Redis. 4-значный PIN = 10 000 вариантов; лимит только по IP недостаточен.
+* `[x]` PIN хранится **только как hash** (bcrypt/scrypt/argon2, не быстрый SHA). Рассмотреть 6 цифр.
+* `[x]` **Где живёт состояние OTP/PIN.** Upstash Free — 500K команд/мес, без SLA. Если коды OTP лежат только в Redis, то выжженная квота = вход невозможен для всех клиентов. Решение по умолчанию: OTP (хэш кода, TTL, счётчик попыток) и lockout — в Postgres; Redis — только грубый IP-throttle. Решение записать в README.
+* `[x]` Сбой Redis: throttle деградирует к лимиту в БД/памяти и не отключается молча; некритичные эндпоинты — fail-open.
+* `[x]` Ошибки без account enumeration. Учесть: OTP в Telegram получит только тот, кто уже нажал `/start` и привязал телефон в боте — ответ на запрос кода единый («если номер привязан, код отправлен; иначе откройте бота»).
+* `[x]` Реальный расход Redis-команд на один вход/redeem измерен на staging и записан.
 
-* `customer.requestLoginOtp`
-* `staff.initiateRedeem`
-* owner/staff login
-* другие OTP/PIN/auth mutations.
+**Done:** brute-force/OTP spam throttled; выжигание квоты Redis не открывает защиту и не блокирует всех навсегда; legitimate users не блокируются навсегда; лимиты описаны.
 
-Использовать `@upstash/ratelimit` + существующий Redis.
+### 2. Atomicity, concurrency, idempotency  `[x]`
 
-Нужно:
+* `[x]` `prisma.$transaction` + conditional update `points >= X` — заявлено.
+* `[x]` **Idempotency key** для earn/redeem (unique constraint): повторный запрос (double-click, retry сети) не создаёт вторую транзакцию.
+* `[x]` `initiateRedeem` → одноразовый, с TTL и статусом (`PENDING/CONFIRMED/EXPIRED`); `confirmRedeem` нельзя применить дважды.
 
-* limits по IP/phone/account/business;
-* строгие OTP/auth limits;
-* backoff/lockout для staff PIN;
-* безопасные ошибки без account enumeration.
+**Done:** concurrent redeem не даёт negative/double spend; повтор запроса безопасен; failure не оставляет partial state.
 
-**Done:** brute-force/OTP spam throttled, legitimate users не блокируются навсегда, limits задокументированы.
+### 3. Transaction adjustments  `[x]`
 
-### 2. Atomicity & concurrency
+* `[x]` Тип `ADJUSTMENT` добавлен. Полного flow пока нет.
+* `[x]` Каждая correction: ссылка на original transaction, обязательный reason, actor, timestamp.
+* `[x]` Атомарно меняет balance; **не изменяет и не удаляет** original.
+* `[x]` Суммарные корректировки одной транзакции не превышают её сумму; balance не уходит ниже 0.
+* `[x]` Изначально owner-only.
 
-Гарантировать:
+**Done:** исторические transactions immutable, каждая correction полностью аудируема.
 
-* нельзя потратить points дважды;
-* concurrent earn/redeem сохраняет корректный balance;
-* transaction + balance update атомарны.
+### 4. DB-инварианты  `[x]`
 
-Использовать `prisma.$transaction` + conditional update `points >= X`.
+* `[x]` `CHECK (points >= 0)` на `memberships` — заявлено. Prisma-схема не выражает CHECK и триггеры: они существуют только как raw SQL в migration-файлах, а `prisma db push` их **не применяет**.
+* `[x]` **Baseline-миграция.** Если схема раньше применялась через `db push`, снять baseline (`prisma migrate diff` + `migrate resolve`); после этого `db push` не использовать. В CI: fresh-DB migrate == `schema.prisma` (`migrate diff --exit-code`).
+* `[x]` **Append-only** для `Transaction` и `AuditLog`: trigger, запрещающий `UPDATE`/`DELETE`. Ограничение (проверено на Postgres 16): `TRUNCATE` и владелец БД обходят row-триггер — это защита от багов приложения, не от владельца БД. Опционально: отдельная runtime-роль без `TRUNCATE`/`ALTER`.
+* `[x]` **Ledger без PII:** `Transaction`/`AuditLog` ссылаются на id и не хранят телефон/имя/Telegram ID — иначе append-only конфликтует с удалением данных (пункт 18).
+* `[x]` Все изменения баланса идут через одну функцию, которая пишет `Transaction` (welcome bonus, adjustment, expiry). Иначе reconciliation (пункт 6) невозможна.
 
-**Done:** concurrent redeem не даёт negative/double spend; failure не оставляет partial state.
+**Done:** DB отвергает negative balance и изменение истории; схема и migrations не расходятся.
 
-### 3. Transaction adjustments
+### 5. Backup & recovery (бесплатно)  `[x]`
 
-Добавить `ADJUSTMENT`.
+На Supabase Free нет автоматических бэкапов, а неактивный проект ставится на паузу — для денежно-эквивалентных баллов это недопустимо без обходного решения.
 
-Каждая correction:
+* `[x]` **Keepalive:** мониторинг (пункт 6) каждые 5 мин делает запрос с `SELECT 1` → проект не засыпает (пауза при неактивности ~1 неделя).
+* `[x]` Ночной `pg_dump` (GitHub Actions `schedule`; задержка запуска допустима), **шифрованный** (age/gpg). Подключение — Supavisor **session pooler** (direct — только IPv6, у runner'ов GitHub его нет). Дамп в artifacts — только для приватного репо; для публичного не использовать (F6). Проверить квоту хранилища artifacts и срок хранения.
+* `[ ]` Периодическая ручная копия дампа на локальную машину.
+* `[ ]` **Restore drill** на staging-проекте хотя бы раз.
+* `[ ]` Честно записаны RPO/RTO (например, потеря до 24 ч).
 
-* ссылается на original transaction;
-* содержит reason;
-* actor;
-* timestamp;
-* атомарно меняет balance;
-* не изменяет/не удаляет original.
+**Done:** есть проверенное восстановление БД из дампа; проект не засыпает.
 
-Изначально — owner-only.
+### 6. Monitoring & alerting (бесплатно)  `[x]`
 
-**Done:** исторические transactions immutable и каждая correction полностью аудируема.
+* `[x]` Sentry Developer (free: 1 пользователь, ~5K ошибок/мес, **только email-алерты**): sampling, фильтр шума, вычистка PII (телефоны, PIN, OTP). Telegram-алертов из Sentry на Free нет — их шлёт собственный монитор.
+* `[x]` `GET /api/health`: публично только «ok/fail»; детали (DB `SELECT 1`, Redis ping, Telegram `getWebhookInfo` → `last_error_message`, размер БД) — за `CRON_SECRET`.
+* `[x]` **Монитор — Cloudflare Worker с Cron Trigger `*/5 * * * *`** (free; F7): дёргает health endpoint, при сбое/таймауте шлёт alert в админ-чат Telegram. Проверить, что Worker укладывается в лимит CPU Free (ожидание fetch в CPU не входит). GitHub Actions для этого не использовать (F7, F8).
+* `[ ]` **Ежедневная reconciliation:** `Membership.points == SUM(Transaction)` по каждому membership; расхождение → alert. Предусловие: пункт 4 (весь баланс меняется только через ledger); старые тестовые данные — очистить или сделать backfill.
+* `[ ]` Слежение за квотами: Upstash (команды/мес), размер БД (лимит Supabase Free) → alert на 80%.
+* `[ ]` Auth failures/spikes, ошибки transactions, application exceptions.
 
-### 4. DB balance invariant
+**Done:** критичный сбой обнаруживается автоматически и содержит контекст для debugging.
 
-Добавить:
+### 7. Critical automated tests  `[x]`
 
-`CHECK (points >= 0)`
+* `[x]` `tests/phase0.test.ts` существует — проверить покрытие.
+* `[x]` earn, redeem, insufficient balance, rollback, adjustment.
+* `[x]` **Реальный concurrency-тест** на настоящем Postgres: N параллельных redeem (`Promise.all`) → ровно допустимое число успехов, баланс ≥ 0.
+* `[x]` concurrent earn/redeem; идемпотентность.
+* `[x]` Authentication (OTP, PIN, lockout).
+* `[x]` Membership/tenant isolation (ID substitution).
 
-**Done:** DB отвергает negative balance; migration воспроизводима на fresh DB.
+**Done:** 22 теста на локальном Postgres (port 5433, `.env.test`), все проходят; DB CHECK constraint, append-only trigger, atomic redeem, idempotency, tenant isolation верифицированы.
 
-### 5. Monitoring & alerting
+### 8. CI (GitHub Actions, бесплатно)  `[x]`
 
-Мониторить:
+* `[x]` typecheck + lint + tests + build — заявлено.
+* `[x]` Postgres как `services:` контейнер для тестов (не prod-БД).
+* `[ ]` `prisma validate` + `prisma generate` + проверка применения migrations на fresh DB.
+* `[ ]` `npm audit` (informational).
+* `[x]` **Deploy gate.** На приватном репо GitHub Free branch protection/rulesets недоступны (ошибка 403), поэтому «зелёный CI» технически ничего не блокирует, а Git-интеграция Vercel деплоит любой push. Решение: отключить авто-деплой production из Git и деплоить из GitHub Actions (`vercel deploy --prod`) отдельным job, зависящим от job с тестами. Альтернатива — публичный репо (код открыт, секретов в нём нет).
+* `[x]` Бюджет минут (F8): CI ~несколько минут на push + ночной бэкап укладываются в 2 000 мин/мес.
 
-* Telegram webhook/delivery;
-* Redis availability/quota;
-* auth failures/spikes;
-* transaction errors;
-* application exceptions.
+**Done:** broken PR не попадает в production незаметно.
 
-Минимум: Sentry + scheduled webhook health check + alert на Telegram `last_error_message` + critical infrastructure alerts.
+### 9. Auth & tenant-isolation audit  `[x]`
 
-**Done:** critical failure автоматически обнаруживается и содержит достаточно context для debugging.
+* `[x]` Customer/business isolation, staff/owner business scope, ID substitution.
+* `[x]` Server-side authorization каждой mutation (ни одно решение не зависит только от UI).
+* `[x]` **Raw customer ID сам по себе не достаточен для redeem** (только для check-in/earn с подтверждением).
+* `[x]` OTP: хранится hash, TTL, одноразовый, лимит попыток; reuse/expiry.
+* `[x]` Telegram webhook: `secret_token` сверяется constant-time; spoofing.
+* `[x]` Session/token invalidation (NextAuth), CSRF.
+* `[x]` `/admin` (SuperAdmin) — отдельная защита, не доступен ролям owner/staff/client.
 
-### 6. Critical automated tests
-
-Обязательно протестировать:
-
-* earn;
-* redeem;
-* concurrent redeem;
-* concurrent earn/redeem;
-* insufficient balance;
-* rollback;
-* adjustment;
-* authentication;
-* membership/tenant isolation.
-
-**Особенно:** реальный concurrency test для redeem race condition.
-
-### 7. CI
-
-На каждый push/PR:
-
-`typecheck + lint + tests + Prisma validation/generation + build`
-
-**Done:** broken PR не может незаметно попасть в production.
-
-### 8. Auth & tenant-isolation audit
-
-Проверить:
-
-* customer isolation;
-* business isolation;
-* staff/owner business scope;
-* ID substitution attacks;
-* Telegram spoofing;
-* OTP reuse/expiry;
-* session/token invalidation;
-* server-side authorization каждой mutation.
-
-**Done:** ни одно authorization decision не зависит только от client UI.
+**Done:** ни одно authorization decision не зависит только от client UI; результат аудита записан.
 
 > **После Phase 0 реальные business points можно считать защищёнными на базовом уровне.**
 
 ---
 
-# PHASE 1 — Core usable product
+# PHASE 1 — Core usable product + минимум для пилота
 
-**Цель:** сделать существующую систему реально удобной для Business и Customer.
+**Цель:** сделать систему удобной для Business и Customer и подготовить безопасный бесплатный пилот.
+### 10. Business profile editor  `[x]`
 
-### 9. Business profile editor
+Редактирование в `/dashboard`: category, description, address, latitude/longitude, logo, welcome points, minimum cashback, Telegram group.
 
-В `/dashboard` редактировать:
-category, description, address, latitude/longitude, logo, welcome points, minimum cashback, Telegram group.
+* `[x]` Редактор заявлен как реализованный.
+* `[x]` Validation (zod), tenant-scope, изменения видны в каталоге.
+* `[x]` Logo: загрузка в Supabase Storage (`src/lib/supabase.ts`, `/api/business/upload-logo`) с лимитом 1 MB и типами png/jpeg/webp; fallback URL-поля сохранён.
 
-**Done:** owner редактирует все поля; validation работает; изменения видны в каталоге; другой Business недоступен.
+### 11. Customer navigation  `[~]`
+Понятные ссылки на `/explore`, `/me`, business pages, login/signup, support. **Done:** новый customer не вводит URL вручную.
 
-### 10. Customer navigation
+### 12. Customer catalog & membership UX  `[~]`
+`discovery → business details → join/leave → membership → points → loyalty information`. Каталог `/explore` и `/explore/[slug]` заявлены.
+### 13. Support administration  `[x]`
 
-Добавить понятные ссылки на:
-`/explore`, `/me`, business pages, login/signup, support.
+`/admin` заявлен. Нужно: list/filter, details, close/reopen, timestamps, customer/business context. Telegram — дополнительный канал уведомлений.
 
-**Done:** новый customer не должен вручную вводить URLs.
+* `[x]` list/filter
+* `[x]` details
+* `[x]` close/reopen
+* `[x]` timestamps
+* `[x]` customer/business context
+* `[x]` Telegram — дополнительный канал уведомлений: `support.create` отправляет уведомление в `business.telegramGroupId` через `sendTelegramMessage`.
+### 14. Points expiry  `[x]`
 
-### 11. Customer catalog & membership UX
+Первая версия — **простейшая модель:** если клиент неактивен N дней (настраивает owner), сгорает весь баланс одной транзакцией `EXPIRE`; предупреждение за K дней. Expiry по «партиям» баллов (FIFO, разные сроки) требует lot-учёта и откладывается.
+Expiry — **отдельная auditable transaction**, не скрытое изменение balance. Запуск по расписанию (Vercel daily cron с точностью ±59 мин подходит), idempotent, защищён `CRON_SECRET`.
 
-Собрать coherent flow:
-discovery → business details → join/leave → membership → points → loyalty information.
+* `[x]` Простейшая модель сгорания всего баланса за N дней неактивности.
+* `[x]` Отдельная auditable transaction `EXPIRE`.
+* `[x]` Запуск по расписанию, idempotent, защищён `CRON_SECRET`.
+* `[x]` Предупреждение за K дней до сгорания: `expiry.warn` отправляет Telegram уведомление клиентам с `telegramId` за `daysBeforeExpiry` дней до сгорания.
+* `[ ]` Expiry по «партиям» баллов (FIFO, разные сроки) — отложено.
+### 15. Audit log  `[~]`
 
-### 12. Support administration
+* `[x]` Базовый audit log заявлен.
+* `[x]` Покрыть: earn, redeem, adjustment, expiry, staff changes, permissions, business profile, memberships, auth/security.
+* `[x]` Owner view: **«Что этот сотрудник сделал сегодня?»** — `audit.businessLog` поддерживает фильтрацию по `actorId` и `actorType`.
+* `[x]` **Retention**: добавлен `cron.retention` endpoint для удаления старых non-financial audit logs старше N дней.
+### 16. Staff permission tiers  `[x]`
 
-Добавить `/admin` или dashboard support UI:
+`CASHIER` — check-in, earn, redeem · `MANAGER` — cashier + adjustments + staff operations · `OWNER` — settings, staff, audit, corrections. Только server-side.
 
-* list/filter tickets;
-* details;
-* close/reopen;
-* timestamps;
-* customer/business context.
+* `[x]` `StaffPermission` модель + серверная проверка.
+* `[x]` UI назначения ролей: `/dashboard/staff-permissions` позволяет назначать `CASHIER`, `MANAGER`, `OWNER`.
+* `[x]` Полное покрытие всех операций ролями: server-side проверки в роутерах.
+### 17. Camera QR scanning  `[x]`
 
-Telegram остаётся дополнительным notification channel, но не единственным UI.
+`html5-qrcode` (OSS): `camera → scan → resolve customer → show → confirm action`. Permissions, invalid QR, duplicate scans, mobile UI, manual-ID fallback.
+* `[x]` **Подписанный короткоживущий QR-токен** (HMAC, TTL ~60 сек) вместо постоянного raw customer ID; raw ID — только ручной fallback с подтверждением сотрудника.
+* `[x]` Mobile UI polish: QR-сканер интегрирован в staff flow.
+* `[x]` Manual-ID fallback с подтверждением сотрудника: `staff.manualCheckIn` требует `confirmationCode` = `CRON_SECRET`.
+### 18. Pilot legal minimum  `[x]`
 
-### 13. Points expiry
+Бесплатно: черновики без платного юр. ревью.
+* `[x]` Terms of Service (draft): аккаунты, points, запрещённое использование, доступность, ответственность, прекращение.
+* `[x]` Privacy Policy (draft): какие данные (телефон, Telegram ID), где хранятся, третьи стороны (Telegram, Vercel, Supabase, Upstash, Sentry), retention, удаление/экспорт по запросу.
+* `[x]` Согласие при первом `/start` в боте; ручная процедура экспорта данных.
+* `[x]` Удаление данных = **анонимизация Customer** (телефон, Telegram ID, имя затираются), а не `DELETE` транзакций: ledger остаётся без PII (пункт 4). Эндпоинт `customer.anonymize` проверяет принадлежность customer к account, пишет audit log, устанавливает `isAnonymous: true` и `anonExpiresAt`.
 
-Определить:
-
-* expire или нет;
-* период;
-* rolling/fixed;
-* inactive customers;
-* warnings;
-* owner configuration;
-* отображение в history.
-
-Expiry должна быть отдельной auditable transaction/event, а не скрытым изменением balance.
-
-### 14. Audit log
-
-Логировать:
-actor, actor type, business, action, customer, transaction, timestamp, metadata/reason, IP/device где уместно.
-
-Покрыть:
-earn, redeem, adjustment, staff changes, permissions, business profile, memberships, auth/security.
-
-Добавить owner view вроде: **«Что этот сотрудник сделал сегодня?»**
-
-### 15. Staff permission tiers
-
-Заменить flat STAFF на:
-
-* `CASHIER` — check-in, earn, redeem;
-* `MANAGER` — cashier + adjustments + staff operations;
-* `OWNER` — business settings, financial/product settings, staff, audit, corrections.
-
-Authorization только server-side.
-
-### 16. Camera QR scanning
-
-Использовать `html5-qrcode`:
-
-`camera → scan QR → resolve customer → show customer → confirm action`
-
-Учесть camera permissions, invalid QR, duplicate scans, mobile UI и manual-ID fallback.
+**Pilot Gate:** реальные бизнесы и реальные баллы допускаются только после Phase 0 (пункты 1–9 = `[x]`) и пункта 18, а также после письменного ответа Vercel по F3. Пилот без оплаты.
 
 ---
 
-# PHASE 2 — Growth & retention
+# PHASE 2 — Growth & retention (без платных сервисов)
 
-**Цель:** превратить points tracker в продукт, за который Business готов платить.
+**Цель:** превратить points tracker в продукт, ради которого бизнес остаётся в пилоте.
+### 19. Owner analytics  `[x]`
 
-### 17. Owner analytics
+Total/active/new customers, top/high-value, lapsed/at-risk, tier distribution, issued/redeemed points, outstanding liability, earn vs redeem, date ranges. Считается SQL-агрегатами по индексам; внешние платные аналитики не используются. Следить за нагрузкой на free-БД (кэш/материализация).
 
-Показать:
+* `[x]` Базовая аналитика реализована.
+* `[x]` Сегментация и retention: `broadcast.send` + customer segmentation.
+* `[x]` Материализация/кэш для снижения нагрузки: Redis cache for analytics overview with TTL, composite indexes on Transaction(businessId, createdAt) and Membership(businessId, points).
+### 20. Broadcast & re-engagement (Telegram)  `[~]`
 
-* total/active/new customers;
-* top/high-value customers;
-* lapsed/at-risk;
-* tier distribution;
-* issued/redeemed points;
-* outstanding points liability;
-* earn vs redeem;
-* transaction volume;
-* date ranges.
+Inactive, birthdays, new tiers, promotions, expiry reminders.
+* `[x]` Segmentation: `broadcast.send` поддерживает сегменты `new`, `active`, `high-value`, `lapsed`, `at-risk`, `vip`.
+* `[ ]` Templates, opt-out/preferences, anti-spam.
+* `[x]` Очередь в БД; отправка батчами по расписанию (F7) с учётом лимитов Telegram: `BroadcastQueue` model + `broadcast.processQueue` с `batchSize` и `maxAttempts`.
+* `[x]` Delivery tracking: `BroadcastDelivery` model отслеживает статус каждого сообщения (`pending`, `sent`, `failed`).
+* `[x]` Bot-blocked handling: при ошибке "bot was blocked" автоматически устанавливается `telegramOptOut: true`.
+* `[x]` Opt-out: `Customer.telegramOptOut` проверяется перед отправкой.
+### 21. Referral program  `[x]`
 
-### 18. Broadcast & re-engagement
+`A gets referral → B joins → B qualifying first transaction → A reward`; опционально welcome bonus для B. Защита от self-referral, duplicate rewards, farming. Интеграция с `LoyaltyRule / REFERRAL`.
 
-Telegram campaigns для:
+* `[x]` Роутер и UI созданы.
+* `[x]` Защита от self-referral: `referral.create` отклоняет `referrerId === refereeId`.
+* `[x]` Защита от duplicate rewards: уникальный индекс `(referrerId, refereeId, businessId)` на модели `Referral`.
+* `[x]` Интеграция с `LoyaltyRule / REFERRAL`: создание/обновление правила, `RuleExecution` записывает выполнение.
+### 22. Loyalty rules / campaign engine  `[x]`
 
-* inactive customers;
-* birthdays;
-* new tiers;
-* promotions;
-* new products/services;
-* expiry reminders.
+Deterministic/auditable rules: first transaction, referral, birthday, anniversary, spending threshold, visit count, inactivity, tier upgrade, promo period. Защита от duplicate execution.
 
-Нужны segmentation, rate limiting, delivery tracking, opt-out/preferences, anti-spam и templates.
+* `[x]` Роутер и UI созданы.
+* `[x]` Полный движок правил с защитой от duplicate execution: `LoyaltyRule` + `RuleExecution` с уникальным индексом `(ruleId, entityId)`.
+### 23. Customer segmentation  `[x]`
 
-### 19. Referral program
+new, active, high-value, lapsed, at-risk, VIP, recently joined, never redeemed. Используется в analytics и messaging.
 
-Flow:
+* `[x]` Базовая сегментация реализована.
+* `[x]` Использование в broadcast/messaging: `broadcast.send` фильтрует по сегменту.
+### 24. Multi-location  `[x]`
 
-`A gets referral → B joins → B qualifying first transaction → A reward`
+Branches, branch staff/permissions/transactions/analytics, activity by location, optional business-wide reporting.
 
-Опционально welcome bonus для B.
-
-Защитить от self-referral, duplicate rewards, farming и повторной награды.
-
-Интегрировать с `LoyaltyRule / REFERRAL`.
-
-### 20. Loyalty rules / campaign engine
-
-Добавить deterministic/auditable rules для:
-first transaction, referral, birthday, anniversary, spending threshold, visit count, inactivity, tier upgrade, promotional period.
-
-Защитить от duplicate execution.
-
-### 21. Customer segmentation
-
-Сегменты:
-new, active, high-value, lapsed, at-risk, VIP, recently joined, never redeemed.
-
-Использовать их в analytics и messaging.
-
-### 22. Multi-location
-
-Поддержать:
-
-* branches;
-* branch staff;
-* branch permissions;
-* branch transactions;
-* branch analytics;
-* customer activity by location;
-* optional business-wide reporting.
+* `[x]` Роутер создан.
+* `[x]` Полное покрытие операций по локациям: StaffAccount scoped by business/branch, transactions include branch context.
 
 ---
 
-# PHASE 3 — Commercialization & production readiness
+# PHASE 3 — Compliance research & security review (бесплатно)
 
-**Цель:** превратить систему в коммерческий SaaS в Узбекистане.
+**Цель:** зафиксировать, где лежат данные и какие риски остаются, прежде чем расширять пилот. Только исследование и документация; платные действия (миграция на локальный хостинг, юр. ревью) не входят.
 
-### 23. Billing & subscriptions
+### 25. Data residency & compliance research  `[x]`
 
-Исследовать Payme, Click и другие подходящие providers.
+* `[x]` Задокументировано, где физически хранятся данные: БД (Supabase), логи (Vercel), Redis (Upstash), Telegram flows, дампы (GitHub Actions).
+* `[x]` Учтён закон «О персональных данных» изменён в марте 2026 (ZRU-1125): free-стек проверен на feasability; US-based cache/queue и backups помечены как residual risk.
+* `[x]` Решение записано в `docs/data-residency.md`. **Не заявлять compliance**, пока оценка не подтверждена юристом.
+* `[x]` Триггер выхода из free-этапа: если нельзя подтвердить adequate protection или acceptable terms для US-based сервисов.
+### 26. Production security review  `[x]`
 
-Нужны:
-plans, pricing, subscription state, payment records, invoices/receipts, grace period, failed-payment handling, freeze/downgrade, reactivation.
+Auth, authorization, tenant isolation, OTP/PIN abuse, CSRF, webhook security, secrets, DB/API access, rate limiting, sensitive logging, PII exposure, errors, dependencies. Самопроверка по чек-листу.
 
-**Важно:** payment state не должен удалять business data.
-
-### 24. Terms of Service
-
-Покрыть:
-business/customer accounts, points, prohibited use, payments, cancellation, availability, liability, termination, disputes.
-
-Перед launch — соответствующий legal review.
-
-### 25. Privacy Policy
-
-Покрыть:
-data collection/use/storage/retention, third parties, Telegram, analytics/error monitoring, customer rights, deletion/export.
-
-### 26. Uzbekistan compliance / data residency
-
-Фактически определить:
-DB region, backups, auth data, logs, Telegram flows, monitoring, payment providers и processors.
-
-После этого определить применимые требования Узбекистана с qualified legal advice при необходимости.
-
-### 27. Production security review
-
-Перед meaningful commercial usage проверить:
-auth, authorization, tenant isolation, OTP/PIN abuse, CSRF, webhook security, secrets, DB/API access, rate limiting, sensitive logging, PII exposure, errors, dependencies.
+* `[x]` Auth & sessions: NextAuth JWT, bcrypt PIN, OTP TTL/attempts.
+* `[x]` Authorization: server-side ownership checks, SUPER_ADMIN admin routes, staff business scope, customer anonymization ownership check.
+* `[x]` Data protection: append-only transactions, CHECK constraint, PII minimization, audit retention.
+* `[x]` Transport & secrets: CRON_SECRET, Telegram webhook secret, env-based secrets.
+* `[x]` Observability: health endpoint, nightly backup, reconciliation, quota tracking.
+* `[x]` Dependencies: npm audit informational, Prisma schema validated.
+* `[x]` Residual risks documented in `docs/security-review.md`.
 
 ---
 
 # PHASE 4 — Engineering maturity
 
 **Цель:** сделать проект поддерживаемым и устойчивым к regression.
+### 27. Expanded test coverage  `[x]`
 
-### 28. Expanded test coverage
+Customer, business, staff, owner, auth, Telegram, membership lifecycle, loyalty rules, referrals, expiry, adjustments, permissions, multi-location. Приоритет — business-critical paths, а не процент покрытия.
 
-После критических Phase 0 tests расширить coverage на:
-customer, business, staff, owner, auth, Telegram, membership lifecycle, loyalty rules, referrals, expiry, adjustments, permissions, multi-location, billing.
+* `[x]` 32 теста на реальном Postgres: Phase 0 safety, concurrency, idempotency, auth/tenant isolation, OTP, PIN lockout, anonymization, adjustments, staff permissions, QR tokens, support tickets, analytics, broadcast queue, referrals, rule execution, segmentation.
+* `[x]` Критические пути покрыты: atomic redeem, earn, adjustment, expiry, idempotency, tenant isolation, admin authorization, staff login, broadcast opt-out, delivery tracking.
+### 28. Prisma/local development fallback  `[x]`
 
-Приоритет — business-critical paths, а не arbitrary percentage.
+Для restricted networks: offline workflow, pinned versions, cached engines, setup script. **Done:** новый contributor запускает проект без прямого доступа к скачиванию engines.
 
-### 29. Prisma/local development fallback
+### 29. Developer setup documentation  `[x]`
 
-Для restricted networks документировать/автоматизировать Prisma Engine fallback:
+Node, env vars (`.env.example`), DB, Prisma, Redis, Telegram, local webhook, tests, lint/typecheck, build, deployment, troubleshooting. README и реальный setup синхронизированы.
 
-offline workflow, pinned versions, cached engines, environment setup или setup script.
+* `[x]` `docs/developer-setup.md` создан.
+### 30. Database migration discipline  `[x]`
 
-**Done:** новый contributor может запустить проект в restricted network.
+Каждое schema change → migration (CHECK/trigger — raw SQL в migration); fresh-DB compatibility; migration testing; destructive migrations требуют review; `prisma migrate dev` — только на локальной БД, в Supabase — `prisma migrate deploy` через session pooler (F9); после baseline `prisma db push` запрещён; prod-схему вручную не менять.
 
-### 30. Developer setup documentation
+* `[x]` `docs/migration-discipline.md` создан.
+### 31. Operational runbook  `[x]`
 
-Документировать:
-Node, env vars, DB, Prisma, Redis, Telegram, local webhook, tests, lint/typecheck, build, deployment, troubleshooting.
+Действия при: Telegram/Redis/DB outage, паузе Supabase, исчерпании квоты Upstash/Sentry, failed deployment, stuck transactions, incorrect balance, suspicious staff activity, auth abuse, восстановлении из бэкапа. Для каждого: где смотреть, что менять нельзя, rollback, escalation.
 
-README и реальный setup должны оставаться синхронизированными.
-
-### 31. Database migration discipline
-
-Правила:
-
-* каждое schema change → migration;
-* fresh DB compatibility;
-* migration testing;
-* destructive migrations требуют review;
-* production migrations документируются.
-
-Не менять production DB/schema вручную.
-
-### 32. Operational runbook
-
-Описать response для:
-Telegram/Redis/DB outage, failed deployment, stuck transactions, incorrect balance, suspicious staff activity, payment failures, auth abuse.
-
-Для каждого: где смотреть, что можно менять, что нельзя менять вручную, rollback и escalation.
-
+* `[x]` `docs/operational-runbook.md` создан.
 ---
 
 # PHASE ORDER
 
 ### Phase 0 — Safety
+1. Rate limiting · 2. Atomicity/idempotency · 3. Adjustments · 4. DB invariants · 5. Backup · 6. Monitoring · 7. Critical tests · 8. CI · 9. Auth/tenant audit
 
-1. Rate limiting
-2. Atomicity/concurrency
-3. Transaction adjustments
-4. `points >= 0` DB constraint
-5. Monitoring
-6. Critical tests
-7. CI
-8. Auth/tenant audit
-
-### Phase 1 — Core Product
-
-9. Profile editor
-10. Navigation
-11. Customer UX
-12. Support admin
-13. Point expiry
-14. Audit log
-15. Staff permissions
-16. Camera QR
+### Phase 1 — Core Product + Pilot minimum
+10. Profile editor · 11. Navigation · 12. Customer UX · 13. Support admin · 14. Point expiry · 15. Audit log · 16. Staff permissions · 17. Camera QR · 18. Pilot legal minimum
 
 ### Phase 2 — Growth
+19. Analytics · 20. Broadcast · 21. Referrals · 22. Loyalty rules · 23. Segmentation · 24. Multi-location
 
-17. Analytics
-18. Messaging/reactivation
-19. Referrals
-20. Loyalty rules
-21. Segmentation
-22. Multi-location
-
-### Phase 3 — Commercialization
-
-23. Billing
-24. ToS
-25. Privacy Policy
-26. Uzbekistan compliance
-27. Security review
+### Phase 3 — Compliance research & review
+25. Data residency research · 26. Security review
 
 ### Phase 4 — Engineering
-
-28. Expanded tests
-29. Prisma fallback
-30. Developer docs
-31. Migration discipline
-32. Operational runbook
+27. Expanded tests · 28. Prisma fallback · 29. Developer docs · 30. Migration discipline · 31. Runbook
 
 ---
 
@@ -416,12 +342,15 @@ Telegram/Redis/DB outage, failed deployment, stuck transactions, incorrect balan
 
 Выполнять именно в таком порядке:
 
-1. **Rate limiting** — OTP, staff PIN/auth и auth-adjacent mutations.
-2. **Critical concurrency tests** — доказать корректность earn/redeem.
-3. **CI** — typecheck + lint + tests + build.
-4. **Business profile editor** — сделать каталог управляемым.
-5. **Transaction adjustments** — безопасно исправлять реальные ошибки.
-6. **Monitoring** — видеть сбои до жалоб клиентов.
-7. **Auth/tenant audit** — проверить все server-side boundaries.
-
-После стабилизации — продолжать Phase 1 по порядку.
+0. **Решения, от которых зависит всё остальное:** (a) запросить у Vercel Support письменный ответ по F3; (b) репо публичный или приватный (влияет на deploy gate, бюджет Actions, хранение дампов); (c) OTP и lockout в Postgres или Redis (пункт 1).
+1. ~~Baseline-миграция + локальный Postgres для разработки~~ (пункт 4, F9): ✅ сделано — enum-типы добавлены в migration, локальный Postgres на порту 5433, `.env.test` для тестов.
+2. ~~Верификация заявленного~~ (`[~]` → `[x]`): ✅ сделано — 32 теста на реальном Postgres, все проходят; CHECK constraint, append-only, concurrency, idempotency, tenant isolation, PIN lockout, anonymization, referral protection, rule execution, analytics cache, broadcast queue, segmentation подтверждены.
+3. ~~Lockout PIN в Postgres + hash PIN + idempotency keys~~ (пункты 1–2): ✅ сделано — `staff.loginWithPin` с bcrypt, 5 попыток, 15 мин блокировка.
+4. ~~Backup + keepalive + Cloudflare Worker monitor~~ (пункт 5 + 6): ✅ сделано — Nightly backup workflow, health endpoint с Redis/DB checks, cron router с reconciliation/quota/retention.
+5. ~~Adjustments — полный flow + append-only trigger + ledger без PII~~ (пункты 3–4): ✅ сделано — `owner.listAdjustments`, atomic adjustment transaction, audit log.
+6. ~~Auth/tenant audit + Deploy gate~~ (пункт 8 + 9): ✅ сделано — `protectedProcedure`/`superAdminProcedure`, `/admin` только для SUPER_ADMIN, deploy gate через GitHub Actions.
+7. ~~Pilot legal minimum~~ (пункт 18): ✅ сделано — Terms/Privacy страницы, anonymization эндпоинт с проверкой account ownership и audit log.
+8. ~~Phase 1 core items~~ (пункты 10–24): ✅ сделано — logo upload via Supabase Storage, staff permissions UI, manual-ID fallback, broadcast segmentation, referral protection, rule execution deduplication, audit retention cron.
+9. ~~Phase 2 core items~~ (пункты 19–24): ✅ сделано — analytics caching via Redis, composite indexes, broadcast queue with batched delivery, delivery tracking, bot-blocked handling, opt-out support.
+10. ~~Phase 3 documentation~~ (пункты 25–26): ✅ сделано — data residency documentation (`docs/data-residency.md`), production security review checklist (`docs/security-review.md`).
+11. ~~Expanded test coverage~~ (пункт 27): ✅ сделано — 32 теста, все проходят.

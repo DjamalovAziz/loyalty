@@ -1,16 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  const token = req.cookies.get("next-auth.session-token")?.value;
 
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-forwarded-for", ip);
+  if (!token && req.nextUrl.pathname.startsWith("/dashboard")) {
+    return NextResponse.redirect(new URL("/auth/signin", req.url));
+  }
 
-  return NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/api/trpc/:path*", "/api/telegram/:path*"],
+  matcher: ["/dashboard/:path*", "/staff/:path*", "/admin/:path*"],
 };

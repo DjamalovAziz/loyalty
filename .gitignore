@@ -43,3 +43,9 @@ yarn-error.log*
 # Misc
 .cache
 .parcel-cache
+
+# Local Postgres data directory
+pgdata-test
+
+# Kilo local config/worktrees
+.kilo

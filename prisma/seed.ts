@@ -1,66 +1,38 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const ownerPassword = await bcrypt.hash("owner123", 10);
-
-  const owner = await prisma.user.upsert({
-    where: { email: "owner@test.com" },
+  const owner = await prisma.account.upsert({
+    where: { email: "owner@demo.local" },
     update: {},
     create: {
-      email: "owner@test.com",
-      name: "Owner Test",
-      password: ownerPassword,
+      name: "Demo Owner",
+      email: "owner@demo.local",
       role: "OWNER",
-      staffRole: "OWNER",
+      passwordHash: await import("bcryptjs").then((bcrypt) =>
+        bcrypt.hash("password123", 10)
+      ),
     },
   });
 
-  const business = await prisma.business.create({
-    data: {
-      name: "Test Business",
-      slug: "test-business",
-      description: "A test business for demo",
-      category: "cafe",
-      address: "Tashkent, Uzbekistan",
-      welcomePoints: 10,
-      minimumCashback: 5,
+  const business = await prisma.business.upsert({
+    where: { slug: "demo-cafe" },
+    update: {},
+    create: {
+      slug: "demo-cafe",
+      name: "Demo Café",
+      description: "Демо-бизнес для разработки",
+      category: "Cafe",
+      welcomePoints: 100,
+      minimumCashback: 50,
       ownerId: owner.id,
     },
   });
 
-  const customer = await prisma.customer.upsert({
-    where: { phone: "+998901234567" },
-    update: {},
-    create: {
-      phone: "+998901234567",
-      name: "Test Customer",
-      isVerified: true,
-    },
-  });
-
-  const membership = await prisma.membership.create({
-    data: {
-      customerId: customer.id,
-      businessId: business.id,
-      points: 100,
-    },
-  });
-
-  console.log("Seed completed:");
-  console.log("Owner:", owner.email);
-  console.log("Business:", business.name, business.slug);
-  console.log("Customer:", customer.phone);
-  console.log("Membership ID:", membership.id);
+  console.log("Seeded:", business);
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

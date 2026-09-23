@@ -1,319 +1,259 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from "zod";
-import { publicProcedure, router } from "@/lib/trpc";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
-import { rateLimit } from "@/lib/rateLimit";
+import { publicProcedure, router } from "@/lib/trpc";
+import { hashPin, verifyPin } from "@/lib/pin";
 
-export const staffRouter = router({
-  initiateRedeem: publicProcedure
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+const staffRouter = router({
+  loginWithPin: publicProcedure
     .input(
       z.object({
         businessId: z.string(),
-        customerId: z.string(),
-        amount: z.number().int().positive(),
-        description: z.string().optional(),
-        actorId: z.string(),
+        email: z.string().email(),
+        pin: z.string().min(4).max(12),
       })
     )
     .mutation(async ({ input }) => {
-      const limited = await rateLimit({
-        key: `redeem:${input.businessId}:${input.customerId}`,
-        limit: 5,
-        window: "1 m",
-      });
-      if (limited) return limited;
-
-      const membership = await prisma.membership.findUnique({
-        where: {
-          customerId_businessId: {
-            customerId: input.customerId,
-            businessId: input.businessId,
-          },
-        },
+      const account = await prisma.account.findUnique({
+        where: { email: input.email },
       });
 
-      if (!membership || !membership.isActive) {
-        throw new Error("Membership not found");
+      if (!account) {
+        return { success: false, error: "Invalid credentials" };
       }
 
-      if (membership.points < input.amount) {
-        throw new Error("Insufficient balance");
+      const staffAccount = await prisma.staffAccount.findFirst({
+        where: { accountId: account.id, businessId: input.businessId },
+      });
+
+      if (!staffAccount) {
+        return { success: false, error: "Invalid credentials" };
       }
 
-      const result = await prisma.$transaction(async (tx: any) => {
-        const updated = await tx.membership.update({
-          where: { id: membership.id },
-          data: { points: { decrement: input.amount } },
+      if (!staffAccount.isActive) {
+        return { success: false, error: "Account inactive" };
+      }
+
+      const now = new Date();
+      if (staffAccount.lockedUntil && staffAccount.lockedUntil > now) {
+        const remaining = Math.ceil((staffAccount.lockedUntil.getTime() - now.getTime()) / 60000);
+        return { success: false, error: `Account locked for ${remaining} min` };
+      }
+
+      const isValid = await verifyPin(input.pin, staffAccount.pinHash);
+      if (!isValid) {
+        const newFailed = staffAccount.failedAttempts + 1;
+        const lockedUntil =
+          newFailed >= MAX_FAILED_ATTEMPTS
+            ? new Date(now.getTime() + LOCKOUT_MINUTES * 60 * 1000)
+            : null;
+
+        await prisma.staffAccount.update({
+          where: { id: staffAccount.id },
+          data: { failedAttempts: newFailed, lockedUntil },
         });
 
-        const txn = await tx.transaction.create({
-          data: {
-            type: "REDEEM",
-            amount: input.amount,
-            description: input.description || "Redeem",
-            membershipId: membership.id,
-            businessId: input.businessId,
-            customerId: input.customerId,
-            actorId: input.actorId,
-            actorType: "STAFF",
-          },
-        });
-
-        return { membership: updated, transaction: txn };
-      });
-
-      await logAudit({
-        action: "redeem_initiated",
-        actorId: input.actorId,
-        actorType: "STAFF",
-        businessId: input.businessId,
-        customerId: input.customerId,
-        resourceType: "transaction",
-        resourceId: result.transaction.id,
-        metadata: { amount: input.amount },
-      });
-
-      return { success: true, transaction: result.transaction, newBalance: result.membership.points };
-    }),
-
-  confirmRedeem: publicProcedure
-    .input(
-      z.object({
-        transactionId: z.string(),
-        actorId: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const transaction = await prisma.transaction.findUnique({
-        where: { id: input.transactionId },
-      });
-
-      if (!transaction || transaction.type !== "REDEEM") {
-        throw new Error("Transaction not found");
+        return { success: false, error: "Invalid PIN" };
       }
 
-      await logAudit({
-        action: "redeem_confirmed",
-        actorId: input.actorId,
-        actorType: "STAFF",
-        businessId: transaction.businessId,
-        customerId: transaction.customerId,
-        resourceType: "transaction",
-        resourceId: transaction.id,
+      await prisma.staffAccount.update({
+        where: { id: staffAccount.id },
+        data: { failedAttempts: 0, lockedUntil: null },
       });
 
-      return { success: true };
+      return { success: true, staffAccountId: staffAccount.id };
     }),
 
   earnPoints: publicProcedure
     .input(
       z.object({
         businessId: z.string(),
+        staffAccountId: z.string(),
         customerId: z.string(),
         amount: z.number().int().positive(),
-        description: z.string().optional(),
-        actorId: z.string(),
+        idempotencyKey: z.string(),
       })
     )
     .mutation(async ({ input }) => {
       const membership = await prisma.membership.findUnique({
-        where: {
-          customerId_businessId: {
-            customerId: input.customerId,
-            businessId: input.businessId,
-          },
-        },
+        where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
 
-      if (!membership || !membership.isActive) {
-        throw new Error("Membership not found");
+      if (!membership) {
+        const customer = await prisma.customer.findUnique({ where: { id: input.customerId } });
+        if (!customer) return { success: false, error: "Customer not found" };
+
+        const newMembership = await prisma.membership.create({
+          data: { customerId: input.customerId, businessId: input.businessId, points: 0 },
+        });
+
+        const idempotencyKey = input.idempotencyKey;
+        const existing = await prisma.transaction.findUnique({ where: { idempotencyKey } });
+        if (existing) return { success: true, transactionId: existing.id };
+
+        const result = await prisma.$transaction(async (tx) => {
+          const updated = await tx.membership.update({
+            where: { id: newMembership.id },
+            data: { points: { increment: input.amount } },
+          });
+          return tx.transaction.create({
+            data: {
+              type: "EARN",
+              amount: input.amount,
+              balanceBefore: 0,
+              balanceAfter: updated.points,
+              idempotencyKey,
+              actorType: "STAFF",
+              actorId: input.staffAccountId,
+              membershipId: newMembership.id,
+              customerId: input.customerId,
+              businessId: input.businessId,
+            },
+          });
+        });
+
+        return { success: true, transactionId: result.id };
       }
 
-      const result = await prisma.$transaction(async (tx: any) => {
+      const existing = await prisma.transaction.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (existing) return { success: true, transactionId: existing.id };
+
+      const balanceBefore = membership.points;
+
+      const result = await prisma.$transaction(async (tx) => {
         const updated = await tx.membership.update({
           where: { id: membership.id },
           data: { points: { increment: input.amount } },
         });
-
-        const txn = await tx.transaction.create({
+        return tx.transaction.create({
           data: {
             type: "EARN",
             amount: input.amount,
-            description: input.description || "Earn points",
-            membershipId: membership.id,
-            businessId: input.businessId,
-            customerId: input.customerId,
-            actorId: input.actorId,
+            balanceBefore,
+            balanceAfter: updated.points,
+            idempotencyKey: input.idempotencyKey,
             actorType: "STAFF",
+            actorId: input.staffAccountId,
+            membershipId: membership.id,
+            customerId: input.customerId,
+            businessId: input.businessId,
           },
         });
-
-        return { membership: updated, transaction: txn };
       });
 
-      await logAudit({
-        action: "earn_points",
-        actorId: input.actorId,
-        actorType: "STAFF",
-        businessId: input.businessId,
-        customerId: input.customerId,
-        resourceType: "transaction",
-        resourceId: result.transaction.id,
-        metadata: { amount: input.amount },
-      });
-
-      return { success: true, transaction: result.transaction, newBalance: result.membership.points };
+      return { success: true, transactionId: result.id };
     }),
 
-  checkInByCustomerId: publicProcedure
+  initiateRedeem: publicProcedure
     .input(
       z.object({
         businessId: z.string(),
+        staffAccountId: z.string(),
         customerId: z.string(),
-        actorId: z.string(),
+        amount: z.number().int().positive(),
+        idempotencyKey: z.string(),
       })
     )
     .mutation(async ({ input }) => {
       const membership = await prisma.membership.findUnique({
-        where: {
-          customerId_businessId: {
-            customerId: input.customerId,
-            businessId: input.businessId,
-          },
-        },
+        where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
 
       if (!membership || !membership.isActive) {
-        throw new Error("Membership not found");
+        return { success: false, error: "Membership not found or inactive" };
       }
 
-      const business = await prisma.business.findUnique({
-        where: { id: input.businessId },
-        select: { welcomePoints: true },
+      const existing = await prisma.transaction.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
       });
 
-      if (!business) {
-        throw new Error("Business not found");
+      if (existing) {
+        return { success: true, transactionId: existing.id };
       }
 
-      if (business.welcomePoints > 0) {
-        const result = await prisma.$transaction(async (tx: any) => {
-          const updated = await tx.membership.update({
-            where: { id: membership.id },
-            data: { points: { increment: business.welcomePoints } },
-          });
+      const balanceBefore = membership.points;
 
-          const txn = await tx.transaction.create({
-            data: {
-              type: "EARN",
-              amount: business.welcomePoints,
-              description: "Check-in bonus",
-              membershipId: membership.id,
-              businessId: input.businessId,
-              customerId: input.customerId,
-              actorId: input.actorId,
-              actorType: "STAFF",
-            },
-          });
-
-          return { membership: updated, transaction: txn };
+      const transaction = await prisma.$transaction(async (tx) => {
+        const updated = await tx.membership.update({
+          where: { id: membership.id },
+          data: { points: { decrement: input.amount } },
         });
 
-        await logAudit({
-          action: "checkin",
-          actorId: input.actorId,
-          actorType: "STAFF",
-          businessId: input.businessId,
-          customerId: input.customerId,
-          resourceType: "transaction",
-          resourceId: result.transaction.id,
+        if (updated.points < 0) {
+          throw new Error("Insufficient balance");
+        }
+
+        return tx.transaction.create({
+          data: {
+            type: "REDEEM",
+            amount: input.amount,
+            balanceBefore,
+            balanceAfter: updated.points,
+            idempotencyKey: input.idempotencyKey,
+            actorType: "STAFF",
+            actorId: input.staffAccountId,
+            membershipId: membership.id,
+            customerId: input.customerId,
+            businessId: input.businessId,
+          },
         });
-
-        return { success: true, transaction: result.transaction, newBalance: result.membership.points };
-      }
-
-      await logAudit({
-        action: "checkin",
-        actorId: input.actorId,
-        actorType: "STAFF",
-        businessId: input.businessId,
-        customerId: input.customerId,
       });
+
+      return { success: true, transactionId: transaction.id };
+    }),
+
+  confirmRedeem: publicProcedure
+    .input(z.object({ transactionId: z.string() }))
+    .mutation(async ({ input }) => {
+      const existing = await prisma.transaction.findUnique({
+        where: { id: input.transactionId },
+      });
+
+      if (!existing || existing.type !== "REDEEM") {
+        return { success: false, error: "Transaction not found" };
+      }
 
       return { success: true };
     }),
 
-  adjustTransaction: publicProcedure
-    .input(
-      z.object({
-        businessId: z.string(),
-        originalTransactionId: z.string(),
-        amount: z.number().int().positive(),
-        reason: z.string().min(1),
-        actorId: z.string(),
-        actorType: z.enum(["OWNER", "STAFF", "ADMIN"]),
-      })
-    )
+  checkInByCustomerId: publicProcedure
+    .input(z.object({ businessId: z.string(), customerId: z.string(), staffAccountId: z.string() }))
     .mutation(async ({ input }) => {
-      const original = await prisma.transaction.findUnique({
-        where: { id: input.originalTransactionId },
+      const membership = await prisma.membership.findUnique({
+        where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
 
-      if (!original || original.businessId !== input.businessId) {
-        throw new Error("Original transaction not found");
+      if (!membership || !membership.isActive) {
+        return { success: false, error: "Membership not found or inactive" };
+      }
+
+      return { success: true, points: membership.points };
+    }),
+
+  manualCheckIn: publicProcedure
+    .input(z.object({ businessId: z.string(), customerId: z.string(), staffAccountId: z.string(), confirmationCode: z.string() }))
+    .mutation(async ({ input }) => {
+      if (input.confirmationCode !== process.env.CRON_SECRET) {
+        return { success: false, error: "Invalid confirmation code" };
       }
 
       const membership = await prisma.membership.findUnique({
-        where: { id: original.membershipId },
+        where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
 
-      if (!membership) {
-        throw new Error("Membership not found");
+      if (!membership || !membership.isActive) {
+        return { success: false, error: "Membership not found or inactive" };
       }
 
-      const result = await prisma.$transaction(async (tx: any) => {
-        const updated = await tx.membership.update({
-          where: { id: membership.id },
-          data: { points: { increment: input.amount } },
-        });
-
-        const adjustment = await tx.transaction.create({
-          data: {
-            type: "ADJUSTMENT",
-            amount: input.amount,
-            description: input.reason,
-            membershipId: membership.id,
-            businessId: input.businessId,
-            customerId: original.customerId,
-            actorId: input.actorId,
-            actorType: input.actorType,
-            originalTransactionId: original.id,
-            metadata: {
-              originalType: original.type,
-              originalAmount: original.amount,
-            },
-          },
-        });
-
-        return { membership: updated, adjustment };
+      await prisma.membership.update({
+        where: { id: membership.id },
+        data: { lastEarnAt: new Date() },
       });
 
-      await logAudit({
-        action: "transaction_adjusted",
-        actorId: input.actorId,
-        actorType: input.actorType,
-        businessId: input.businessId,
-        customerId: original.customerId,
-        resourceType: "transaction",
-        resourceId: result.adjustment.id,
-        metadata: {
-          originalTransactionId: original.id,
-          amount: input.amount,
-          reason: input.reason,
-        },
-      });
-
-      return { success: true, adjustment: result.adjustment, newBalance: result.membership.points };
+      return { success: true, points: membership.points };
     }),
 });
+
+export default staffRouter;

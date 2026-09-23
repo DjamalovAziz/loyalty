@@ -1,11 +1,10 @@
-import { initTRPC, TRPCError } from "@trpc/server";
+import { initTRPC } from "@trpc/server";
 import superjson from "superjson";
-import { PrismaClient } from "@prisma/client";
-import { Redis } from "@upstash/redis";
+import type { PrismaClient } from "@prisma/client";
 
 export type Context = {
   prisma: PrismaClient;
-  redis: Redis;
+  user: { id: string; role: string } | null;
 };
 
 const t = initTRPC.context<Context>().create({
@@ -14,8 +13,17 @@ const t = initTRPC.context<Context>().create({
 
 export const router = t.router;
 export const publicProcedure = t.procedure;
-export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+
+export const protectedProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new Error("Unauthorized");
+  }
   return next({ ctx });
 });
 
-export { TRPCError };
+export const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  if (ctx.user!.role !== "SUPER_ADMIN") {
+    throw new Error("Forbidden");
+  }
+  return next({ ctx: { ...ctx, user: ctx.user! } });
+});

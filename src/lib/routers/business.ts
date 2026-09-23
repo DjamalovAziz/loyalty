@@ -1,83 +1,76 @@
 import { z } from "zod";
-import { publicProcedure, router } from "@/lib/trpc";
 import { prisma } from "@/lib/prisma";
+import { publicProcedure, router } from "@/lib/trpc";
+import { writeAuditLog } from "@/lib/audit";
 
-export const businessRouter = router({
+const businessRouter = router({
   explore: publicProcedure
     .input(
       z.object({
         query: z.string().optional(),
         category: z.string().optional(),
         limit: z.number().min(1).max(50).default(20),
-        cursor: z.string().optional(),
+        offset: z.number().min(0).default(0),
       })
     )
     .query(async ({ input }) => {
-      const where: Record<string, unknown> = { isActive: true };
-
-      if (input.category) {
-        where.category = input.category;
-      }
-
+      const where: any = { isActive: true };
       if (input.query) {
         where.OR = [
           { name: { contains: input.query, mode: "insensitive" } },
           { description: { contains: input.query, mode: "insensitive" } },
+          { category: { contains: input.query, mode: "insensitive" } },
         ];
       }
-
-      const businesses = await prisma.business.findMany({
-        where,
-        take: input.limit + 1,
-        cursor: input.cursor ? { id: input.cursor } : undefined,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          category: true,
-          address: true,
-          latitude: true,
-          longitude: true,
-          logo: true,
-          welcomePoints: true,
-          minimumCashback: true,
-          createdAt: true,
-        },
-      });
-
-      let nextCursor: string | undefined;
-      if (businesses.length > input.limit) {
-        const nextItem = businesses.pop();
-        nextCursor = nextItem!.id;
+      if (input.category) {
+        where.category = { equals: input.category, mode: "insensitive" };
       }
 
-      return { items: businesses, nextCursor };
+      const [items, total] = await Promise.all([
+        prisma.business.findMany({
+          where,
+          take: input.limit,
+          skip: input.offset,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            description: true,
+            category: true,
+            logoUrl: true,
+            welcomePoints: true,
+            minimumCashback: true,
+          },
+        }),
+        prisma.business.count({ where }),
+      ]);
+
+      return { items, total, limit: input.limit, offset: input.offset };
     }),
 
-  getById: publicProcedure
-    .input(z.object({ id: z.string() }))
+  getBySlug: publicProcedure
+    .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
-      const business = await prisma.business.findUnique({
-        where: { id: input.id },
+      return prisma.business.findUnique({
+        where: { slug: input.slug },
         select: {
           id: true,
-          name: true,
           slug: true,
+          name: true,
           description: true,
           category: true,
           address: true,
           latitude: true,
           longitude: true,
-          logo: true,
+          logoUrl: true,
           welcomePoints: true,
           minimumCashback: true,
-          telegramGroup: true,
-          createdAt: true,
+          telegramGroupId: true,
+          isActive: true,
         },
       });
-
-      return business;
     }),
 });
+
+export default businessRouter;

@@ -1,0 +1,26 @@
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PGPASS: ${{ secrets.PGPASS }}
+      BACKUP_SECRET: ${{ secrets.BACKUP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx prisma migrate deploy
+      - run: node scripts/backup.js
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PGPASS: ${{ secrets.PGPASS }}
+          BACKUP_SECRET: ${{ secrets.BACKUP_SECRET }}

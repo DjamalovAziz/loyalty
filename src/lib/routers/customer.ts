@@ -1,151 +1,165 @@
 import { z } from "zod";
-import { publicProcedure, router } from "@/lib/trpc";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
-import { rateLimit } from "@/lib/rateLimit";
+import { publicProcedure, router } from "@/lib/trpc";
 
-const otpSchema = z.object({
-  phone: z.string().min(10),
-});
-
-export const customerRouter = router({
+const customerRouter = router({
   requestLoginOtp: publicProcedure
-    .input(otpSchema)
+    .input(z.object({ phone: z.string() }))
     .mutation(async ({ input }) => {
-      const limited = await rateLimit({
-        key: `otp:${input.phone}`,
-        limit: 3,
-        window: "1 h",
-      });
-      if (limited) return limited;
-
-      const customer = await prisma.customer.upsert({
-        where: { phone: input.phone },
-        update: { isVerified: false },
-        create: { phone: input.phone },
+      const account = await prisma.account.upsert({
+        where: { email: input.phone },
+        update: {},
+        create: {
+          name: input.phone,
+          email: input.phone,
+          role: "CUSTOMER",
+        },
       });
 
-      await logAudit({
-        action: "otp_requested",
-        actorType: "customer",
-        customerId: customer.id,
-        metadata: { phone: input.phone },
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = Buffer.from(code).toString("base64");
+
+      await prisma.otpCode.create({
+        data: {
+          accountId: account.id,
+          codeHash,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        },
       });
 
-      return { success: true, message: "OTP sent" };
+      console.log(`OTP for ${input.phone}: ${code}`);
+      return { sent: true };
+    }),
+
+  verifyOtp: publicProcedure
+    .input(z.object({ phone: z.string(), code: z.string() }))
+    .mutation(async ({ input }) => {
+      const account = await prisma.account.findFirst({
+        where: { email: input.phone, role: "CUSTOMER" },
+      });
+
+      if (!account) return { success: false };
+
+      const otp = await prisma.otpCode.findFirst({
+        where: {
+          accountId: account.id,
+          consumedAt: null,
+          expiresAt: { gt: new Date() },
+          attempts: { lt: 5 },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!otp) return { success: false };
+
+      const isValid = Buffer.from(otp.codeHash, "base64").toString() === input.code;
+      if (!isValid) {
+        await prisma.otpCode.update({
+          where: { id: otp.id },
+          data: { attempts: { increment: 1 } },
+        });
+        return { success: false };
+      }
+
+      await prisma.otpCode.update({
+        where: { id: otp.id },
+        data: { consumedAt: new Date() },
+      });
+
+      return { success: true, accountId: account.id };
     }),
 
   join: publicProcedure
-    .input(
-      z.object({
-        customerId: z.string(),
-        businessId: z.string(),
-      })
-    )
+    .input(z.object({ businessId: z.string(), accountId: z.string() }))
     .mutation(async ({ input }) => {
-      const business = await prisma.business.findUnique({
-        where: { id: input.businessId },
+      const customer = await prisma.customer.findUnique({
+        where: { accountId: input.accountId },
       });
 
-      if (!business || !business.isActive) {
-        throw new Error("Business not found");
-      }
-
-      const membership = await prisma.membership.upsert({
-        where: {
-          customerId_businessId: {
-            customerId: input.customerId,
-            businessId: input.businessId,
-          },
-        },
-        create: {
-          customerId: input.customerId,
-          businessId: input.businessId,
-          points: business.welcomePoints,
-        },
-        update: {
-          isActive: true,
-        },
-      });
-
-      if (business.welcomePoints > 0) {
-        await prisma.transaction.create({
+      if (!customer) {
+        const newCustomer = await prisma.customer.create({
           data: {
-            type: "EARN",
-            amount: business.welcomePoints,
-            description: "Welcome bonus",
-            membershipId: membership.id,
-            businessId: input.businessId,
-            customerId: input.customerId,
+            accountId: input.accountId,
+            phone: `phone-${input.accountId}`,
           },
         });
-      }
 
-      await logAudit({
-        action: "membership_joined",
-        actorType: "customer",
-        customerId: input.customerId,
-        businessId: input.businessId,
-        resourceType: "membership",
-        resourceId: membership.id,
-      });
-
-      return { success: true, membership };
-    }),
-
-  leave: publicProcedure
-    .input(
-      z.object({
-        customerId: z.string(),
-        businessId: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const membership = await prisma.membership.update({
-        where: {
-          customerId_businessId: {
-            customerId: input.customerId,
+        await prisma.membership.create({
+          data: {
+            customerId: newCustomer.id,
             businessId: input.businessId,
           },
-        },
-        data: { isActive: false },
-      });
+        });
 
-      await logAudit({
-        action: "membership_left",
-        actorType: "customer",
-        customerId: input.customerId,
-        businessId: input.businessId,
-        resourceType: "membership",
-        resourceId: membership.id,
+        return { success: true };
+      }
+
+      await prisma.membership.upsert({
+        where: { customerId_businessId: { customerId: customer.id, businessId: input.businessId } },
+        update: { isActive: true },
+        create: {
+          customerId: customer.id,
+          businessId: input.businessId,
+        },
       });
 
       return { success: true };
     }),
 
-  me: publicProcedure
-    .input(z.object({ customerId: z.string() }))
-    .query(async ({ input }) => {
-      const customer = await prisma.customer.findUnique({
-        where: { id: input.customerId },
-        include: {
-          memberships: {
-            where: { isActive: true },
-            include: {
-              business: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                  logo: true,
-                  category: true,
-                },
-              },
-            },
-          },
+  leave: publicProcedure
+    .input(z.object({ businessId: z.string(), customerId: z.string(), accountId: z.string() }))
+    .mutation(async ({ input }) => {
+      const customer = await prisma.customer.findFirst({
+        where: { id: input.customerId, accountId: input.accountId },
+      });
+
+      if (!customer) {
+        return { success: false, error: "Customer not found" };
+      }
+
+      await prisma.membership.update({
+        where: { customerId_businessId: { customerId: customer.id, businessId: input.businessId } },
+        data: { isActive: false },
+      });
+
+      return { success: true };
+    }),
+
+  anonymize: publicProcedure
+    .input(z.object({ customerId: z.string(), accountId: z.string() }))
+    .mutation(async ({ input }) => {
+      const customer = await prisma.customer.findFirst({
+        where: { id: input.customerId, accountId: input.accountId },
+      });
+
+      if (!customer) {
+        return { success: false, error: "Customer not found" };
+      }
+
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          phone: `anon-${customer.id}`,
+          firstName: null,
+          lastName: null,
+          telegramId: null,
+          isAnonymous: true,
+          anonExpiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         },
       });
 
-      return customer;
+      await prisma.auditLog.create({
+        data: {
+          action: "customer.anonymize",
+          actorType: "CUSTOMER",
+          actorId: input.accountId,
+          target: customer.id,
+          meta: { previousPhone: customer.phone },
+        },
+      });
+
+      return { success: true };
     }),
 });
+
+export default customerRouter;

@@ -3,37 +3,406 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DIRECT_URL")
 }
 
-enum Role {
+model Account {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  role          AccountRole @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  customer      Customer?
+  ownerBusiness Business[] @relation("BusinessOwner")
+  staffAccounts StaffAccount[]
+  sessions      Session[]
+  otpCodes      OtpCode[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  accountId    String
+  expires      DateTime
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Customer {
+  id            String    @id @default(cuid())
+  accountId     String    @unique
+  phone         String    @unique
+  telegramId    String?   @unique
+  firstName     String?
+  lastName      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isAnonymous   Boolean   @default(false)
+  anonExpiresAt DateTime?
+  telegramOptOut Boolean @default(false)
+
+  account       Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  memberships   Membership[]
+  supportTickets SupportTicket[]
+  transactions  Transaction[]     @relation("CustomerTransactions")
+  referrerReferrals Referral[] @relation("ReferrerReferrals")
+  refereeReferrals  Referral[] @relation("RefereeReferrals")
+
+  @@index([phone])
+  @@index([telegramId])
+}
+
+model Business {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  name            String
+  description     String?
+  category        String?
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  logoUrl         String?
+  welcomePoints   Int       @default(0)
+  minimumCashback Int       @default(0)
+  telegramGroupId String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ownerId         String
+  owner           Account              @relation("BusinessOwner", fields: [ownerId], references: [id])
+  memberships     Membership[]
+  loyaltyRules    LoyaltyRule[]
+  transactions    Transaction[]        @relation("BusinessTransactions")
+  supportTickets  SupportTicket[]
+  staffAccounts   StaffAccount[]
+  auditLogs       AuditLog[]
+  staffInvites    StaffInvite[]
+  referrals       Referral[]
+  broadcasts      BroadcastQueue[]
+
+  @@index([slug])
+  @@index([ownerId])
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  points    Int      @default(0)
+  tier      String   @default("BRONZE")
+  isActive  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastEarnAt DateTime?
+  lastRedeemAt DateTime?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  transactions Transaction[]
+
+  @@unique([customerId, businessId])
+  @@index([customerId])
+  @@index([businessId])
+}
+
+model Transaction {
+  id             String            @id @default(cuid())
+  type           TransactionType
+  amount         Int
+  balanceBefore  Int
+  balanceAfter   Int
+  idempotencyKey String            @unique
+  reason         String?
+  referenceId    String?
+  createdAt      DateTime          @default(now())
+  actorType      ActorType
+  actorId        String
+
+  membershipId   String
+  membership     Membership  @relation(fields: [membershipId], references: [id])
+
+  customerId     String
+  customer       Customer    @relation("CustomerTransactions", fields: [customerId], references: [id])
+
+  businessId     String
+  business       Business    @relation("BusinessTransactions", fields: [businessId], references: [id])
+
+  adjustments    Adjustment[] @relation("AdjustmentOriginal")
+  adjustmentRefs Adjustment[] @relation("AdjustmentReference")
+
+  @@index([membershipId])
+  @@index([customerId])
+  @@index([businessId])
+  @@index([idempotencyKey])
+  @@index([type, createdAt])
+}
+
+model Adjustment {
+  id              String   @id @default(cuid())
+  reason          String
+  createdAt       DateTime @default(now())
+  actorId         String
+  actorType       ActorType
+
+  originalId      String
+  original        Transaction @relation("AdjustmentOriginal", fields: [originalId], references: [id])
+  referenceId     String
+  reference       Transaction @relation("AdjustmentReference", fields: [referenceId], references: [id])
+}
+
+model LoyaltyRule {
+  id          String        @id @default(cuid())
+  type        RuleType
+  isActive    Boolean       @default(true)
+  payload     Json
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  ruleExecutions RuleExecution[]
+
+  @@index([businessId])
+}
+
+model Referral {
+  id           String   @id @default(cuid())
+  referrerId   String
+  refereeId    String
+  businessId   String
+  rewardPoints Int      @default(0)
+  isRewarded   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  referrer     Customer @relation("ReferrerReferrals", fields: [referrerId], references: [id])
+  referee      Customer @relation("RefereeReferrals", fields: [refereeId], references: [id])
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, refereeId, businessId])
+  @@index([businessId])
+}
+
+model RuleExecution {
+  id        String   @id @default(cuid())
+  ruleId    String
+  entityId  String
+  executedAt DateTime @default(now())
+
+  rule      LoyaltyRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, entityId])
+  @@index([entityId])
+}
+
+model SupportTicket {
+  id          String           @id @default(cuid())
+  subject     String
+  message     String
+  status      TicketStatus     @default(OPEN)
+  priority    TicketPriority   @default(NORMAL)
+  source      TicketSource
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  resolvedAt  DateTime?
+
+  customerId  String
+  customer    Customer   @relation(fields: [customerId], references: [id])
+  businessId  String
+  business    Business   @relation(fields: [businessId], references: [id])
+
+  messages    SupportMessage[]
+
+  @@index([customerId])
+  @@index([businessId])
+  @@index([status])
+}
+
+model SupportMessage {
+  id          String   @id @default(cuid())
+  text        String
+  source      TicketSource
+  createdAt   DateTime @default(now())
+
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model StaffAccount {
+  id        String    @id @default(cuid())
+  pinHash   String
+  failedAttempts Int   @default(0)
+  lockedUntil  DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  permissions StaffPermission[]
+
+  @@unique([accountId, businessId])
+  @@index([businessId])
+}
+
+model StaffPermission {
+  id        String    @id @default(cuid())
+  role      StaffRole
+  isActive  Boolean   @default(true)
+
+  staffId   String
+  staff     StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, role])
+}
+
+model StaffInvite {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  role      StaffRole @default(CASHIER)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([businessId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actorType ActorType
+  actorId   String
+  target    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([actorType, actorId])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  maxAttempts Int    @default(5)
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([expiresAt])
+}
+
+model BroadcastQueue {
+  id        String    @id @default(cuid())
+  businessId String
+  segment   String
+  message   String
+  status    String    @default("pending")
+  attempts  Int       @default(0)
+  maxAttempts Int     @default(3)
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  deliveries BroadcastDelivery[]
+
+  @@index([businessId, status])
+  @@index([createdAt])
+}
+
+model BroadcastDelivery {
+  id            String   @id @default(cuid())
+  queueId       String
+  customerId    String
+  telegramId    String?
+  status        String   @default("pending")
+  error         String?
+  sentAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  queue         BroadcastQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+
+  @@index([queueId, status])
+  @@index([customerId])
+}
+
+enum AccountRole {
+  SUPER_ADMIN
   OWNER
   STAFF
-  ADMIN
+  CUSTOMER
 }
 
-enum StaffRole {
-  CASHIER
-  MANAGER
+enum ActorType {
+  CUSTOMER
   OWNER
+  STAFF
+  SYSTEM
+  ADMIN
 }
 
 enum TransactionType {
   EARN
   REDEEM
   ADJUSTMENT
+  EXPIRE
+  WELCOME
 }
 
-enum SupportTicketStatus {
+enum TicketStatus {
   OPEN
   IN_PROGRESS
   RESOLVED
   CLOSED
 }
 
-enum LoyaltyRuleType {
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketSource {
+  CUSTOMER
+  STAFF
+  ADMIN
+  SYSTEM
+}
+
+enum RuleType {
   REFERRAL
   BIRTHDAY
   ANNIVERSARY
@@ -41,185 +410,11 @@ enum LoyaltyRuleType {
   VISIT_COUNT
   INACTIVITY
   TIER_UPGRADE
-  PROMOTIONAL
+  PROMO
 }
 
-model User {
-  id          String   @id @default(cuid())
-  email       String?  @unique
-  name        String?
-  password    String?
-  role        Role     @default(STAFF)
-  businessId  String?
-  staffRole   StaffRole @default(CASHIER)
-  pin         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  ownedBusiness  Business?  @relation("BusinessOwner")
-  staffBusiness  Business? @relation("BusinessStaff", fields: [businessId], references: [id], onDelete: Cascade)
-  staffTickets   SupportTicket[] @relation("StaffTickets")
-
-  @@map("users")
-}
-
-model Customer {
-  id            String    @id @default(cuid())
-  phone         String    @unique
-  name          String?
-  telegramId    String?   @unique
-  telegramUsername String?
-  isVerified    Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  memberships   Membership[]
-  transactions  Transaction[]
-  tickets       SupportTicket[]
-  referrals     SupportTicket[] @relation("ReferredBy")
-
-  @@map("customers")
-}
-
-model Business {
-  id               String   @id @default(cuid())
-  name             String
-  slug             String   @unique
-  description      String?
-  category         String?
-  address          String?
-  latitude         Float?
-  longitude        Float?
-  logo             String?
-  isActive         Boolean  @default(true)
-  telegramGroup    String?
-  welcomePoints    Int      @default(0)
-  minimumCashback  Int      @default(0)
-  pointsExpiryDays Int?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  ownerId          String   @unique
-  owner            User      @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  memberships      Membership[]
-  transactions     Transaction[]
-  loyaltyRules     LoyaltyRule[]
-  supportTickets   SupportTicket[]
-  staff            User[]    @relation("BusinessStaff")
-  locations        BusinessLocation[]
-
-  @@map("businesses")
-}
-
-model BusinessLocation {
-  id          String   @id @default(cuid())
-  businessId  String
-  name        String
-  address     String?
-  latitude    Float?
-  longitude   Float?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@map("business_locations")
-}
-
-model Membership {
-  id           String   @id @default(cuid())
-  customerId   String
-  businessId   String
-  points       Int      @default(0)
-  tier         String   @default("basic")
-  isActive     Boolean  @default(true)
-  joinedAt     DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
-
-  @@unique([customerId, businessId])
-  @@map("memberships")
-}
-
-model Transaction {
-  id            String          @id @default(cuid())
-  type          TransactionType
-  amount        Int
-  description   String?
-  membershipId  String
-  businessId    String
-  customerId    String
-  actorId       String?
-  actorType     String?
-  metadata      Json?
-  createdAt     DateTime        @default(now())
-
-  membership    Membership      @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customer      Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  adjustments   Transaction[]   @relation("TransactionAdjustment")
-  original      Transaction?    @relation("TransactionAdjustment", fields: [originalTransactionId], references: [id], onDelete: SetNull)
-  originalTransactionId String?
-
-  @@map("transactions")
-}
-
-model LoyaltyRule {
-  id          String            @id @default(cuid())
-  type        LoyaltyRuleType
-  name        String
-  description String?
-  isActive    Boolean           @default(true)
-  config      Json
-  businessId  String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@map("loyalty_rules")
-}
-
-model SupportTicket {
-  id          String              @id @default(cuid())
-  customerId  String
-  businessId  String
-  subject     String
-  message     String
-  status      SupportTicketStatus @default(OPEN)
-  priority    String              @default("normal")
-  assignedToId String?
-  resolvedAt  DateTime?
-  metadata    Json?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  assignedTo  User?     @relation("StaffTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  referrer    Customer? @relation("ReferredBy", fields: [referrerId], references: [id], onDelete: SetNull)
-  referrerId  String?
-
-  @@map("support_tickets")
-}
-
-model AuditLog {
-  id          String   @id @default(cuid())
-  actorId     String?
-  actorType   String?
-  action      String
-  businessId  String?
-  customerId  String?
-  resourceType String?
-  resourceId  String?
-  metadata    Json?
-  ip          String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-
-  @@map("audit_logs")
+enum StaffRole {
+  CASHIER
+  MANAGER
+  OWNER
 }

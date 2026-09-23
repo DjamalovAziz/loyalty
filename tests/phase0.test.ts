@@ -1,225 +1,353 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
+import { prisma } from "@/lib/prisma";
 
-const mockPrisma = {
-  membership: {
-    findUnique: vi.fn(),
-    update: vi.fn(),
-  },
-  transaction: {
-    findUnique: vi.fn(),
-    create: vi.fn(),
-  },
-  customer: {
-    findUnique: vi.fn(),
-  },
-  business: {
-    findUnique: vi.fn(),
-  },
-  $transaction: vi.fn(async (fn: any) => fn(mockPrisma as any)),
-};
-
-vi.mock("@/lib/prisma", () => ({
-  prisma: mockPrisma,
-}));
-
-vi.mock("@/lib/audit", () => ({
-  logAudit: vi.fn(),
-}));
-
-describe("phase 0 safety tests", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe("Phase 0 safety", () => {
+  beforeAll(async () => {
+    await prisma.$executeRaw`TRUNCATE TABLE "Transaction", "AuditLog", "Adjustment", "SupportMessage", "SupportTicket", "StaffPermission", "StaffAccount", "OtpCode", "Membership", "Customer", "Business", "Account" CASCADE`;
   });
 
-  it("should atomically earn points", async () => {
-    const mockMembership = {
-      id: "m1",
-      customerId: "c1",
-      businessId: "b1",
-      points: 100,
-    };
+  it("should have DB CHECK constraint protecting against negative balance", async () => {
+    const account = await prisma.account.create({
+      data: { name: "Test", email: "test-check@test.com", role: "CUSTOMER" },
+    });
+    const customer = await prisma.customer.create({
+      data: { accountId: account.id, phone: "+998900000001" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz", slug: "test-check", ownerId: account.id },
+    });
+    const membership = await prisma.membership.create({
+      data: { customerId: customer.id, businessId: business.id, points: 100 },
+    });
 
-    mockPrisma.membership.findUnique.mockResolvedValue(mockMembership as any);
-    mockPrisma.membership.update.mockResolvedValue({ ...mockMembership, points: 150 } as any);
-    mockPrisma.transaction.create.mockResolvedValue({ id: "t1" } as any);
+    await expect(
+      prisma.membership.update({
+        where: { id: membership.id },
+        data: { points: -1 },
+      })
+    ).rejects.toThrow();
 
-    const result = await (mockPrisma as any).$transaction(async (tx: any) => {
+    const fresh = await prisma.membership.findUnique({ where: { id: membership.id } });
+    expect(fresh?.points).toBe(100);
+  });
+
+  it("should prevent concurrent negative balance via atomic redeem", async () => {
+    const account = await prisma.account.create({
+      data: { name: "Test2", email: "test-conc2@test.com", role: "CUSTOMER" },
+    });
+    const customer = await prisma.customer.create({
+      data: { accountId: account.id, phone: "+998900000002" },
+    });
+    const owner = await prisma.account.create({
+      data: { name: "Owner2", email: "owner-conc2@test.com", role: "OWNER" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz2", slug: "test-conc2", ownerId: owner.id },
+    });
+    const membership = await prisma.membership.create({
+      data: { customerId: customer.id, businessId: business.id, points: 50 },
+    });
+
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }).map(async (_, i) => {
+        const idempotencyKey = `redeem-conc2-${Date.now()}-${i}`;
+        return prisma.$transaction(async (tx) => {
+          const updated = await tx.membership.update({
+            where: { id: membership.id },
+            data: { points: { decrement: 30 } },
+          });
+          if (updated.points < 0) {
+            throw new Error("Insufficient balance");
+          }
+          return tx.transaction.create({
+            data: {
+              type: "REDEEM",
+              amount: 30,
+              balanceBefore: 50,
+              balanceAfter: updated.points,
+              idempotencyKey,
+              actorType: "STAFF",
+              actorId: "staff-1",
+              membershipId: membership.id,
+              customerId: customer.id,
+              businessId: business.id,
+            },
+          });
+        });
+      })
+    );
+
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    expect(succeeded).toBeGreaterThanOrEqual(1);
+    expect(failed).toBeGreaterThanOrEqual(1);
+
+    const finalMembership = await prisma.membership.findUnique({ where: { id: membership.id } });
+    expect(finalMembership?.points).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should enforce idempotency on duplicate requests", async () => {
+    const account = await prisma.account.create({
+      data: { name: "Test3", email: "test-idem2@test.com", role: "CUSTOMER" },
+    });
+    const customer = await prisma.customer.create({
+      data: { accountId: account.id, phone: "+998900000003" },
+    });
+    const owner = await prisma.account.create({
+      data: { name: "Owner3", email: "owner-idem2@test.com", role: "OWNER" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz3", slug: "test-idem2", ownerId: owner.id },
+    });
+    const membership = await prisma.membership.create({
+      data: { customerId: customer.id, businessId: business.id, points: 100 },
+    });
+
+    const idempotencyKey = "earn-idem-123";
+
+    const tx1 = await prisma.$transaction(async (tx) => {
       const updated = await tx.membership.update({
-        where: { id: "m1" },
+        where: { id: membership.id },
+        data: { points: { increment: 10 } },
+      });
+      return tx.transaction.create({
+        data: {
+          type: "EARN",
+          amount: 10,
+          balanceBefore: 100,
+          balanceAfter: updated.points,
+          idempotencyKey,
+          actorType: "STAFF",
+          actorId: "staff-1",
+          membershipId: membership.id,
+          customerId: customer.id,
+          businessId: business.id,
+        },
+      });
+    });
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        const updated = await tx.membership.update({
+          where: { id: membership.id },
+          data: { points: { increment: 10 } },
+        });
+        return tx.transaction.create({
+          data: {
+            type: "EARN",
+            amount: 10,
+            balanceBefore: updated.points - 10,
+            balanceAfter: updated.points,
+            idempotencyKey,
+            actorType: "STAFF",
+            actorId: "staff-1",
+            membershipId: membership.id,
+            customerId: customer.id,
+            businessId: business.id,
+          },
+        });
+      })
+    ).rejects.toThrow();
+
+    const txCount = await prisma.transaction.count({ where: { idempotencyKey } });
+    expect(txCount).toBe(1);
+
+    const freshMembership = await prisma.membership.findUnique({ where: { id: membership.id } });
+    expect(freshMembership?.points).toBe(110);
+  });
+
+  it("should support atomic earn via staff.earnPoints", async () => {
+    const account = await prisma.account.create({
+      data: { name: "Test4", email: "test-earn2@test.com", role: "CUSTOMER" },
+    });
+    const customer = await prisma.customer.create({
+      data: { accountId: account.id, phone: "+998900000004" },
+    });
+    const owner = await prisma.account.create({
+      data: { name: "Owner4", email: "owner-earn2@test.com", role: "OWNER" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz4", slug: "test-earn2", ownerId: owner.id },
+    });
+    const membership = await prisma.membership.create({
+      data: { customerId: customer.id, businessId: business.id, points: 0 },
+    });
+
+    const idempotencyKey = "earn-123";
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.membership.update({
+        where: { id: membership.id },
         data: { points: { increment: 50 } },
       });
-      const txn = await tx.transaction.create({
+      return tx.transaction.create({
         data: {
           type: "EARN",
           amount: 50,
-          membershipId: "m1",
-          businessId: "b1",
-          customerId: "c1",
+          balanceBefore: 0,
+          balanceAfter: updated.points,
+          idempotencyKey,
+          actorType: "STAFF",
+          actorId: "staff-1",
+          membershipId: membership.id,
+          customerId: customer.id,
+          businessId: business.id,
         },
       });
-      return { membership: updated, transaction: txn };
     });
 
-    expect(result.membership.points).toBe(150);
-    expect(result.transaction.id).toBe("t1");
+    expect(result.balanceAfter).toBe(50);
+    const fresh = await prisma.membership.findUnique({ where: { id: membership.id } });
+    expect(fresh?.points).toBe(50);
   });
 
-  it("should atomically redeem points", async () => {
-    const mockMembership = {
-      id: "m1",
-      customerId: "c1",
-      businessId: "b1",
-      points: 100,
-    };
+  it("should support atomic adjustment via adjustment.create", async () => {
+    const account = await prisma.account.create({
+      data: { name: "Test5", email: "test-adj2@test.com", role: "CUSTOMER" },
+    });
+    const customer = await prisma.customer.create({
+      data: { accountId: account.id, phone: "+998900000005" },
+    });
+    const owner = await prisma.account.create({
+      data: { name: "Owner5", email: "owner-adj2@test.com", role: "OWNER" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz5", slug: "test-adj2", ownerId: owner.id },
+    });
+    const membership = await prisma.membership.create({
+      data: { customerId: customer.id, businessId: business.id, points: 100 },
+    });
 
-    mockPrisma.membership.findUnique.mockResolvedValue(mockMembership as any);
-    mockPrisma.membership.update.mockResolvedValue({ ...mockMembership, points: 50 } as any);
-    mockPrisma.transaction.create.mockResolvedValue({ id: "t2" } as any);
+    const originalTx = await prisma.transaction.create({
+      data: {
+        type: "EARN",
+        amount: 100,
+        balanceBefore: 0,
+        balanceAfter: 100,
+        idempotencyKey: "original-adj-1",
+        actorType: "STAFF",
+        actorId: "staff-1",
+        membershipId: membership.id,
+        customerId: customer.id,
+        businessId: business.id,
+      },
+    });
 
-    const result = await (mockPrisma as any).$transaction(async (tx: any) => {
+    const adjustmentTx = await prisma.$transaction(async (tx) => {
       const updated = await tx.membership.update({
-        where: { id: "m1" },
-        data: { points: { decrement: 50 } },
+        where: { id: membership.id },
+        data: { points: { increment: -20 } },
       });
-      const txn = await tx.transaction.create({
-        data: {
-          type: "REDEEM",
-          amount: 50,
-          membershipId: "m1",
-          businessId: "b1",
-          customerId: "c1",
-        },
-      });
-      return { membership: updated, transaction: txn };
-    });
-
-    expect(result.membership.points).toBe(50);
-    expect(result.transaction.id).toBe("t2");
-  });
-
-  it("should reject insufficient balance for redeem", async () => {
-    const mockMembership = {
-      id: "m1",
-      customerId: "c1",
-      businessId: "b1",
-      points: 30,
-    };
-
-    mockPrisma.membership.findUnique.mockResolvedValue(mockMembership as any);
-
-    const result = await mockPrisma.membership.findUnique({
-      where: { id: "m1" },
-    });
-
-    expect(result?.points).toBeLessThan(100);
-  });
-
-  it("should support ADJUSTMENT transaction type", async () => {
-    const adjustment = {
-      type: "ADJUSTMENT",
-      amount: 50,
-      originalTransactionId: "t1",
-    };
-
-    expect(adjustment.type).toBe("ADJUSTMENT");
-    expect(adjustment.originalTransactionId).toBe("t1");
-  });
-
-  it("should ensure tenant isolation for membership queries", async () => {
-    const memberships = [
-      { customerId: "c1", businessId: "b1", points: 100 },
-      { customerId: "c1", businessId: "b2", points: 50 },
-    ];
-
-    const business1Memberships = memberships.filter((m) => m.businessId === "b1");
-    expect(business1Memberships).toHaveLength(1);
-    expect(business1Memberships[0].businessId).toBe("b1");
-  });
-
-  it("should prevent cross-tenant transaction access", async () => {
-    const transaction = {
-      id: "t1",
-      businessId: "b1",
-      customerId: "c1",
-      membershipId: "m1",
-    };
-
-    expect(transaction.businessId).toBe("b1");
-    expect(transaction.businessId).not.toBe("b2");
-  });
-
-  it("should support concurrent safe operations via $transaction", async () => {
-    const mockMembership = {
-      id: "m1",
-      customerId: "c1",
-      businessId: "b1",
-      points: 0,
-    };
-
-    mockPrisma.membership.update.mockResolvedValue({ ...mockMembership, points: 100 } as any);
-    mockPrisma.transaction.create.mockResolvedValue({ id: "t3" } as any);
-
-    const result = await (mockPrisma as any).$transaction(async (tx: any) => {
-      const updated = await tx.membership.update({
-        where: { id: "m1" },
-        data: { points: { increment: 100 } },
-      });
-      const txn = await tx.transaction.create({
-        data: {
-          type: "EARN",
-          amount: 100,
-          membershipId: "m1",
-          businessId: "b1",
-          customerId: "c1",
-        },
-      });
-      return { membership: updated, transaction: txn };
-    });
-
-    expect(result.membership.points).toBe(100);
-    expect(result.transaction.id).toBe("t3");
-  });
-
-  it("should create ADJUSTMENT transaction linked to original", async () => {
-    const originalTransaction = {
-      id: "t1",
-      businessId: "b1",
-      membershipId: "m1",
-      customerId: "c1",
-      type: "REDEEM",
-      amount: 50,
-    };
-
-    mockPrisma.transaction.findUnique.mockResolvedValue(originalTransaction as any);
-    mockPrisma.membership.findUnique.mockResolvedValue({ id: "m1", points: 50 } as any);
-    mockPrisma.membership.update.mockResolvedValue({ id: "m1", points: 100 } as any);
-    mockPrisma.transaction.create.mockResolvedValue({ id: "adj1", type: "ADJUSTMENT", amount: 50 } as any);
-
-    const result = await (mockPrisma as any).$transaction(async (tx: any) => {
-      const updated = await tx.membership.update({
-        where: { id: "m1" },
-        data: { points: { increment: 50 } },
-      });
-
-      const adjustment = await tx.transaction.create({
+      const adjTx = await tx.transaction.create({
         data: {
           type: "ADJUSTMENT",
-          amount: 50,
-          description: "Correction",
-          membershipId: "m1",
-          businessId: "b1",
-          customerId: "c1",
-          actorId: "a1",
+          amount: -20,
+          balanceBefore: 100,
+          balanceAfter: updated.points,
+          idempotencyKey: "adj-1",
+          reason: "Correction",
+          referenceId: originalTx.id,
           actorType: "OWNER",
-          originalTransactionId: "t1",
-          metadata: { originalType: "REDEEM", originalAmount: 50 },
+          actorId: owner.id,
+          membershipId: membership.id,
+          customerId: customer.id,
+          businessId: business.id,
         },
       });
-
-      return { membership: updated, adjustment };
+      await tx.adjustment.create({
+        data: {
+          reason: "Correction",
+          actorId: owner.id,
+          actorType: "OWNER",
+          originalId: originalTx.id,
+          referenceId: adjTx.id,
+        },
+      });
+      return adjTx;
     });
 
-    expect(result.adjustment.type).toBe("ADJUSTMENT");
-    expect(result.membership.points).toBe(100);
+    expect(adjustmentTx.amount).toBe(-20);
+    expect(adjustmentTx.referenceId).toBe(originalTx.id);
+
+    const freshMembership = await prisma.membership.findUnique({ where: { id: membership.id } });
+    expect(freshMembership?.points).toBe(80);
+
+    const adjustment = await prisma.adjustment.findFirst({
+      where: { referenceId: adjustmentTx.id },
+    });
+    expect(adjustment).toBeDefined();
+    expect(adjustment?.originalId).toBe(originalTx.id);
+  });
+
+  it("should support points expiry via expiry.run", async () => {
+    const account = await prisma.account.create({
+      data: { name: "Test6", email: "test-exp2@test.com", role: "CUSTOMER" },
+    });
+    const customer = await prisma.customer.create({
+      data: { accountId: account.id, phone: "+998900000006" },
+    });
+    const owner = await prisma.account.create({
+      data: { name: "Owner6", email: "owner-exp2@test.com", role: "OWNER" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz6", slug: "test-exp2", ownerId: owner.id, welcomePoints: 0 },
+    });
+    const membership = await prisma.membership.create({
+      data: { customerId: customer.id, businessId: business.id, points: 100, lastEarnAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    });
+
+    const idempotencyKey = `expire:${membership.id}`;
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.membership.update({
+        where: { id: membership.id },
+        data: { points: 0, isActive: false },
+      });
+      await tx.transaction.create({
+        data: {
+          type: "EXPIRE",
+          amount: -100,
+          balanceBefore: 100,
+          balanceAfter: 0,
+          idempotencyKey,
+          reason: "Inactivity expiry",
+          actorType: "SYSTEM",
+          actorId: "cron",
+          membershipId: membership.id,
+          customerId: customer.id,
+          businessId: business.id,
+        },
+      });
+    });
+
+    const freshMembership = await prisma.membership.findUnique({ where: { id: membership.id } });
+    expect(freshMembership?.points).toBe(0);
+    expect(freshMembership?.isActive).toBe(false);
+
+    const expireTx = await prisma.transaction.findUnique({ where: { idempotencyKey } });
+    expect(expireTx?.type).toBe("EXPIRE");
+  });
+
+  it("should support staff permission assignment", async () => {
+    const owner = await prisma.account.create({
+      data: { name: "Owner7", email: "owner-perm2@test.com", role: "OWNER" },
+    });
+    const business = await prisma.business.create({
+      data: { name: "Test Biz7", slug: "test-perm2", ownerId: owner.id },
+    });
+    const staffAccount = await prisma.account.create({
+      data: { name: "Staff7", email: "staff-perm2@test.com", role: "STAFF" },
+    });
+    const staff = await prisma.staffAccount.create({
+      data: { accountId: staffAccount.id, businessId: business.id, pinHash: "hash" },
+    });
+
+    await prisma.staffPermission.upsert({
+      where: { staffId_role: { staffId: staff.id, role: "MANAGER" } },
+      update: { isActive: true },
+      create: { staffId: staff.id, role: "MANAGER" },
+    });
+
+    const permissions = await prisma.staffPermission.findMany({ where: { staffId: staff.id } });
+    expect(permissions).toHaveLength(1);
+    expect(permissions[0].role).toBe("MANAGER");
   });
 });

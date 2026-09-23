@@ -1,49 +1,51 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "@/lib/trpc";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
+import { publicProcedure, superAdminProcedure, router } from "@/lib/trpc";
 
-export const adminRouter = router({
-  listTickets: protectedProcedure
+const adminRouter = router({
+  listTickets: superAdminProcedure
     .input(
       z.object({
-        businessId: z.string().optional(),
-        status: z.string().optional(),
-        limit: z.number().min(1).max(100).default(50),
-        cursor: z.string().optional(),
+        status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(),
+        limit: z.number().min(1).max(100).default(20),
+        offset: z.number().min(0).default(0),
       })
     )
     .query(async ({ input }) => {
-      const where: Record<string, unknown> = {};
-
-      if (input.businessId) where.businessId = input.businessId;
+      const where: any = {};
       if (input.status) where.status = input.status;
 
-      const tickets = await prisma.supportTicket.findMany({
-        where,
-        take: input.limit + 1,
-        cursor: input.cursor ? { id: input.cursor } : undefined,
-        orderBy: { createdAt: "desc" },
-        include: {
-          customer: {
-            select: { id: true, phone: true, name: true, telegramUsername: true },
+      const [items, total] = await Promise.all([
+        prisma.supportTicket.findMany({
+          where,
+          take: input.limit,
+          skip: input.offset,
+          orderBy: { createdAt: "desc" },
+          include: {
+            customer: { select: { firstName: true, lastName: true, phone: true } },
+            business: { select: { name: true, slug: true } },
           },
-          business: {
-            select: { id: true, name: true },
-          },
-        },
-      });
+        }),
+        prisma.supportTicket.count({ where }),
+      ]);
 
-      let nextCursor: string | undefined;
-      if (tickets.length > input.limit) {
-        const nextItem = tickets.pop();
-        nextCursor = nextItem!.id;
-      }
-
-      return { items: tickets, nextCursor };
+      return { items, total, limit: input.limit, offset: input.offset };
     }),
 
-  updateTicketStatus: protectedProcedure
+  getTicket: superAdminProcedure
+    .input(z.object({ ticketId: z.string() }))
+    .query(async ({ input }) => {
+      return prisma.supportTicket.findUnique({
+        where: { id: input.ticketId },
+        include: {
+          messages: { orderBy: { createdAt: "asc" } },
+          customer: { select: { firstName: true, lastName: true, phone: true } },
+          business: { select: { name: true, slug: true } },
+        },
+      });
+    }),
+
+  updateTicketStatus: superAdminProcedure
     .input(
       z.object({
         ticketId: z.string(),
@@ -55,18 +57,12 @@ export const adminRouter = router({
         where: { id: input.ticketId },
         data: {
           status: input.status,
-          resolvedAt: input.status === "RESOLVED" ? new Date() : undefined,
+          resolvedAt: input.status === "RESOLVED" ? new Date() : null,
         },
-      });
-
-      await logAudit({
-        action: "ticket_updated",
-        actorType: "admin",
-        resourceType: "support_ticket",
-        resourceId: ticket.id,
-        metadata: { status: input.status },
       });
 
       return { success: true, ticket };
     }),
 });
+
+export default adminRouter;

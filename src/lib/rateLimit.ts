@@ -1,31 +1,23 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
+import { redis } from "./redis";
 
-export async function rateLimit(options: {
-  key: string;
-  limit: number;
-  window: "1 s" | "1 m" | "1 h" | "1 d";
-}): Promise<NextResponse | null> {
-  const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-  });
+export const otpLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(1, "1 m"),
+  analytics: false,
+  prefix: "ratelimit:otp",
+});
 
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(options.limit, options.window),
-    analytics: false,
-  });
+export const redeemLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  analytics: false,
+  prefix: "ratelimit:redeem",
+});
 
-  const result = await ratelimit.limit(options.key);
-
-  if (!result.success) {
-    return NextResponse.json(
-      { error: "Too many requests", retryAfter: result.reset },
-      { status: 429 }
-    );
-  }
-
-  return null;
-}
+export const apiLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(60, "1 m"),
+  analytics: false,
+  prefix: "ratelimit:api",
+});

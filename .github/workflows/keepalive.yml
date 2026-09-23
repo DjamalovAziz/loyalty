@@ -1,0 +1,20 @@
+name: Keepalive + health monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -f -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/health" || exit 1
+          curl -f -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/trpc/cron.health" \
+            -H "Content-Type: application/json" \
+            -d '{"input":{"secret":"$CRON_SECRET"}}' || exit 1

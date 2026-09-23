@@ -1,35 +1,48 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { redisPing } from "@/lib/redis";
 
-export const dynamic = "force-dynamic";
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  const secret = process.env.CRON_SECRET;
+  const hasSecret = authHeader === `Bearer ${secret}`;
 
-export async function GET() {
-  try {
-    const businessCount = await prisma.business.count();
-    const customerCount = await prisma.customer.count();
-    const membershipCount = await prisma.membership.count();
-    const transactionCount = await prisma.transaction.count();
+  const [dbOk, redisOk] = await Promise.all([
+    prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+    redisPing(),
+  ]);
+
+  const payload = {
+    status: dbOk ? "ok" : "degraded",
+    db: dbOk ? "ok" : "error",
+    timestamp: new Date().toISOString(),
+  };
+
+  if (hasSecret) {
+    const [membershipCount, transactionCount, dbSize] = await Promise.all([
+      prisma.membership.count(),
+      prisma.transaction.count(),
+      prisma.$queryRaw`SELECT pg_database_size(current_database())`.then((r: any) => r[0]?.pg_database_size ?? null).catch(() => null),
+    ]);
 
     return NextResponse.json({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      database: "connected",
-      counts: {
-        businesses: businessCount,
-        customers: customerCount,
-        memberships: membershipCount,
-        transactions: transactionCount,
+      ...payload,
+      redis: redisOk ? "ok" : "error",
+      details: {
+        dbStatus: dbOk ? "ok" : "error",
+        redisStatus: redisOk ? "ok" : "error",
+        membershipCount,
+        transactionCount,
+        dbSizeBytes: dbSize,
       },
     });
-  } catch {
-    return NextResponse.json(
-      {
-        status: "error",
-        timestamp: new Date().toISOString(),
-        database: "disconnected",
-        error: "Failed to connect to database",
-      },
-      { status: 500 }
-    );
   }
+
+  return NextResponse.json({
+    status: payload.status,
+  });
+}
+
+export async function POST(req: NextRequest) {
+  return GET(req);
 }
