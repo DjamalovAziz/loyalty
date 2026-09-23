@@ -318,7 +318,7 @@ Node, env vars (`.env.example`), DB, Prisma, Redis, Telegram, local webhook, tes
 
 * `[x]` `docs/operational-runbook.md` создан.
 ---
-
+ 
 # PHASE ORDER
 
 ### Phase 0 — Safety
