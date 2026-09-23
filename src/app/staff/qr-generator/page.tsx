@@ -1,14 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generateQrToken } from "@/lib/qrToken";
 
 export default function GenerateQrPage() {
-  const [customerId, setCustomerId] = useState("demo-customer");
-  const [businessId, setBusinessId] = useState("demo-business");
+  const [customerId, setCustomerId] = useState("");
+  const [businessId, setBusinessId] = useState("");
   const [token, setToken] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch("/api/trpc/owner.myBusiness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: {} }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const biz = data.result?.data;
+        if (biz?.id) setBusinessId(biz.id);
+      });
+  }, []);
+
   const generate = () => {
+    if (!businessId || !customerId) return;
     const t = generateQrToken(customerId, businessId, 60);
     setToken(t);
   };

@@ -359,3 +359,8 @@ Node, env vars (`.env.example`), DB, Prisma, Redis, Telegram, local webhook, tes
 14. ~~CI hardening~~ (пункт 8): ✅ сделано — `prisma generate`, `npm audit`, `prisma validate` в CI.
 15. ~~RPO/RTO documentation~~ (пункт 5): ✅ сделано — `docs/operational-runbook.md` содержит RPO/RTO и restore drill.
 16. ~~Remove email auth, use phone/Telegram only~~ (user request): ✅ сделано — Account.email заменён на Account.phone, NextAuth использует phone, customer/staff routers используют phone, Telegram bot привязывает аккаунт по phone.
+17. ~~Replace OTP base64 with SHA256~~: ✅ сделано — OTP codes теперь хранятся как SHA256 HMAC, а не base64.
+18. ~~Add rate limiting to staff PIN login~~: ✅ сделано — `apiLimiter` применён к `staff.loginWithPin`.
+19. ~~Fix OTP signin flow to use NextAuth~~: ✅ сделано — NextAuth credentials provider поддерживает OTP code, signin page использует `signIn("phone", ...)`.
+20. ~~Remove hardcoded demo IDs from UI pages~~: ✅ сделано — добавлен `owner.myBusiness` endpoint, все dashboard/staff страницы используют реальный businessId из сессии.
+21. ~~Fix `me` page to show actual memberships~~: ✅ сделано — добавлен `customer.myMemberships` endpoint, страница `/me` теперь показывает реальные memberships пользователя.

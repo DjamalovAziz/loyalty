@@ -180,6 +180,22 @@ const customerRouter = router({
 
       return { success: true };
     }),
+
+  myMemberships: protectedProcedure
+    .query(async ({ ctx }) => {
+      const customer = await prisma.customer.findUnique({
+        where: { accountId: ctx.user!.id },
+      });
+
+      if (!customer) {
+        return [];
+      }
+
+      return prisma.membership.findMany({
+        where: { customerId: customer.id, isActive: true },
+        include: { business: { select: { id: true, name: true, slug: true } } },
+      });
+    }),
 });
 
 export default customerRouter;

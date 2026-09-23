@@ -7,30 +7,20 @@ type Membership = {
   points: number;
   tier: string;
   isActive: boolean;
-  business: { name: string; slug: string };
+  business: { id: string; name: string; slug: string };
 };
 
 export default function MePage() {
   const [memberships, setMemberships] = useState<Membership[]>([]);
 
   useEffect(() => {
-    fetch("/api/trpc/business.explore", {
+    fetch("/api/trpc/customer.myMemberships", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { limit: 20, offset: 0 } }),
+      body: JSON.stringify({ input: {} }),
     })
       .then((r) => r.json())
-      .then((data) => {
-        const items = data.result?.data?.items || [];
-        const mapped: Membership[] = items.map((b: any) => ({
-          id: b.id,
-          points: b.welcomePoints || 0,
-          tier: "BRONZE",
-          isActive: true,
-          business: { name: b.name, slug: b.slug },
-        }));
-        setMemberships(mapped);
-      });
+      .then((data) => setMemberships(data.result?.data || []));
   }, []);
 
   return (

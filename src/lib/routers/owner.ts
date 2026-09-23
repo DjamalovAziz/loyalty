@@ -1,8 +1,16 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { publicProcedure, router } from "@/lib/trpc";
+import { publicProcedure, protectedProcedure, router } from "@/lib/trpc";
 
 const ownerRouter = router({
+  myBusiness: protectedProcedure
+    .query(async ({ ctx }) => {
+      const business = await prisma.business.findFirst({
+        where: { ownerId: ctx.user!.id },
+      });
+      return business;
+    }),
+
   businessProfileUpdate: publicProcedure
     .input(
       z.object({

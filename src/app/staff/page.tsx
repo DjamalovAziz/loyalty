@@ -12,35 +12,33 @@ type Customer = {
 export default function StaffPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
-  const [businessId] = useState("demo");
-  const [staffAccountId, setStaffAccountId] = useState("staff");
+  const [businessId, setBusinessId] = useState("");
+  const [staffAccountId, setStaffAccountId] = useState("");
   const [amount, setAmount] = useState(0);
   const [mode, setMode] = useState<"redeem" | "earn">("redeem");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/trpc/business.explore", {
+    fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { limit: 20, offset: 0 } }),
+      body: JSON.stringify({ input: {} }),
     })
       .then((r) => r.json())
       .then((data) => {
-        const items = data.result?.data?.items || [];
-        setCustomers(
-          items.map((b: any) => ({
-            id: b.id,
-            phone: b.name || b.slug,
-            firstName: b.name,
-            lastName: null,
-          }))
-        );
+        const biz = data.result?.data;
+        if (biz?.id) setBusinessId(biz.id);
       });
   }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+
+    if (!businessId) {
+      setMessage("Business ID not set");
+      return;
+    }
 
     const endpoint = mode === "redeem" ? "staff.initiateRedeem" : "staff.earnPoints";
     const res = await fetch(`/api/trpc/${endpoint}`, {
@@ -70,6 +68,16 @@ export default function StaffPage() {
       <h1 className="text-2xl font-bold">Staff панель</h1>
 
       <form onSubmit={submit} className="space-y-3 max-w-md">
+        <div>
+          <label className="block text-sm font-medium">Business ID</label>
+          <input
+            className="w-full border rounded p-2"
+            value={businessId}
+            onChange={(e) => setBusinessId(e.target.value)}
+            required
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-medium">Staff Account ID</label>
           <input

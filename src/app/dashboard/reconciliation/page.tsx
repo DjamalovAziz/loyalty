@@ -12,23 +12,39 @@ type Discrepancy = {
 export default function ReconciliationPage() {
   const [result, setResult] = useState<{ totalMemberships: number; discrepancies: Discrepancy[]; isHealthy: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
   const run = async () => {
+    if (!businessId) return;
     setLoading(true);
     const res = await fetch("/api/trpc/reconciliation.check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { businessId: "demo" } }),
+      body: JSON.stringify({ input: { businessId } }),
     });
     const data = await res.json();
     setResult(data.result?.data || null);
     setLoading(false);
   };
 
+  useEffect(() => {
+    fetch("/api/trpc/owner.myBusiness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: {} }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const biz = data.result?.data;
+        if (biz?.id) setBusinessId(biz.id);
+      });
+  }, []);
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Reconciliation</h1>
-      <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={run} disabled={loading}>
+      {!businessId && <p>Загрузка...</p>}
+      <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={run} disabled={loading || !businessId}>
         {loading ? "Проверка..." : "Проверить балансы"}
       </button>
       {result && (
