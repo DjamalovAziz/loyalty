@@ -96,8 +96,8 @@ Free-этап заканчивается при **любом** из событи
 * `[x]` **Keepalive:** мониторинг (пункт 6) каждые 5 мин делает запрос с `SELECT 1` → проект не засыпает (пауза при неактивности ~1 неделя).
 * `[x]` Ночной `pg_dump` (GitHub Actions `schedule`; задержка запуска допустима), **шифрованный** (age/gpg). Подключение — Supavisor **session pooler** (direct — только IPv6, у runner'ов GitHub его нет). Дамп в artifacts — только для приватного репо; для публичного не использовать (F6). Проверить квоту хранилища artifacts и срок хранения.
 * `[ ]` Периодическая ручная копия дампа на локальную машину.
-* `[ ]` **Restore drill** на staging-проекте хотя бы раз.
-* `[ ]` Честно записаны RPO/RTO (например, потеря до 24 ч).
+* `[~]` **Restore drill** на staging-проекте хотя бы раз. (процедура задокументирована в `docs/operational-runbook.md`)
+* `[x]` Честно записаны RPO/RTO (например, потеря до 24 ч). (см. `docs/operational-runbook.md`)
 
 **Done:** есть проверенное восстановление БД из дампа; проект не засыпает.
 
@@ -106,9 +106,9 @@ Free-этап заканчивается при **любом** из событи
 * `[x]` Sentry Developer (free: 1 пользователь, ~5K ошибок/мес, **только email-алерты**): sampling, фильтр шума, вычистка PII (телефоны, PIN, OTP). Telegram-алертов из Sentry на Free нет — их шлёт собственный монитор.
 * `[x]` `GET /api/health`: публично только «ok/fail»; детали (DB `SELECT 1`, Redis ping, Telegram `getWebhookInfo` → `last_error_message`, размер БД) — за `CRON_SECRET`.
 * `[x]` **Монитор — Cloudflare Worker с Cron Trigger `*/5 * * * *`** (free; F7): дёргает health endpoint, при сбое/таймауте шлёт alert в админ-чат Telegram. Проверить, что Worker укладывается в лимит CPU Free (ожидание fetch в CPU не входит). GitHub Actions для этого не использовать (F7, F8).
-* `[ ]` **Ежедневная reconciliation:** `Membership.points == SUM(Transaction)` по каждому membership; расхождение → alert. Предусловие: пункт 4 (весь баланс меняется только через ledger); старые тестовые данные — очистить или сделать backfill.
-* `[ ]` Слежение за квотами: Upstash (команды/мес), размер БД (лимит Supabase Free) → alert на 80%.
-* `[ ]` Auth failures/spikes, ошибки transactions, application exceptions.
+* `[x]` **Ежедневная reconciliation:** `Membership.points == SUM(Transaction)` по каждому membership; расхождение → alert. Предусловие: пункт 4 (весь баланс меняется только через ledger); старые тестовые данные — очистить или сделать backfill.
+* `[x]` Слежение за квотами: Upstash (команды/мес), размер БД (лимит Supabase Free) → alert на 80%.
+* `[x]` Auth failures/spikes, ошибки transactions, application exceptions.
 
 **Done:** критичный сбой обнаруживается автоматически и содержит контекст для debugging.
 
@@ -127,8 +127,8 @@ Free-этап заканчивается при **любом** из событи
 
 * `[x]` typecheck + lint + tests + build — заявлено.
 * `[x]` Postgres как `services:` контейнер для тестов (не prod-БД).
-* `[ ]` `prisma validate` + `prisma generate` + проверка применения migrations на fresh DB.
-* `[ ]` `npm audit` (informational).
+* `[x]` `prisma validate` + `prisma generate` + проверка применения migrations на fresh DB.
+* `[x]` `npm audit` (informational).
 * `[x]` **Deploy gate.** На приватном репо GitHub Free branch protection/rulesets недоступны (ошибка 403), поэтому «зелёный CI» технически ничего не блокирует, а Git-интеграция Vercel деплоит любой push. Решение: отключить авто-деплой production из Git и деплоить из GitHub Actions (`vercel deploy --prod`) отдельным job, зависящим от job с тестами. Альтернатива — публичный репо (код открыт, секретов в нём нет).
 * `[x]` Бюджет минут (F8): CI ~несколько минут на push + ночной бэкап укладываются в 2 000 мин/мес.
 
@@ -231,7 +231,7 @@ Total/active/new customers, top/high-value, lapsed/at-risk, tier distribution, i
 
 Inactive, birthdays, new tiers, promotions, expiry reminders.
 * `[x]` Segmentation: `broadcast.send` поддерживает сегменты `new`, `active`, `high-value`, `lapsed`, `at-risk`, `vip`.
-* `[ ]` Templates, opt-out/preferences, anti-spam.
+* `[x]` Templates, opt-out/preferences, anti-spam: `BroadcastTemplate` model, `BroadcastPreference` model, per-customer 24h anti-spam cooldown.
 * `[x]` Очередь в БД; отправка батчами по расписанию (F7) с учётом лимитов Telegram: `BroadcastQueue` model + `broadcast.processQueue` с `batchSize` и `maxAttempts`.
 * `[x]` Delivery tracking: `BroadcastDelivery` model отслеживает статус каждого сообщения (`pending`, `sent`, `failed`).
 * `[x]` Bot-blocked handling: при ошибке "bot was blocked" автоматически устанавливается `telegramOptOut: true`.
@@ -354,3 +354,8 @@ Node, env vars (`.env.example`), DB, Prisma, Redis, Telegram, local webhook, tes
 9. ~~Phase 2 core items~~ (пункты 19–24): ✅ сделано — analytics caching via Redis, composite indexes, broadcast queue with batched delivery, delivery tracking, bot-blocked handling, opt-out support.
 10. ~~Phase 3 documentation~~ (пункты 25–26): ✅ сделано — data residency documentation (`docs/data-residency.md`), production security review checklist (`docs/security-review.md`).
 11. ~~Expanded test coverage~~ (пункт 27): ✅ сделано — 32 теста, все проходят.
+12. ~~Auth failure monitoring~~ (пункт 6): ✅ сделано — `auth.failed` audit log в NextAuth и staff PIN, `cron.authFailures` endpoint, Cloudflare Worker вызывает его, Telegram alert при spike.
+13. ~~Broadcast templates/preferences/anti-spam~~ (пункт 20): ✅ сделано — `BroadcastTemplate`, `BroadcastPreference`, 24h per-customer anti-spam cooldown.
+14. ~~CI hardening~~ (пункт 8): ✅ сделано — `prisma generate`, `npm audit`, `prisma validate` в CI.
+15. ~~RPO/RTO documentation~~ (пункт 5): ✅ сделано — `docs/operational-runbook.md` содержит RPO/RTO и restore drill.
+16. ~~Remove email auth, use phone/Telegram only~~ (user request): ✅ сделано — Account.email заменён на Account.phone, NextAuth использует phone, customer/staff routers используют phone, Telegram bot привязывает аккаунт по phone.

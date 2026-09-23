@@ -2,6 +2,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { publicProcedure, router } from "@/lib/trpc";
 import { hashPin, verifyPin } from "@/lib/pin";
+import { writeAuditLog } from "@/lib/audit";
+import { apiLimiter } from "@/lib/rateLimit";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -11,13 +13,18 @@ const staffRouter = router({
     .input(
       z.object({
         businessId: z.string(),
-        email: z.string().email(),
+        phone: z.string(),
         pin: z.string().min(4).max(12),
       })
     )
     .mutation(async ({ input }) => {
+      const { success } = await apiLimiter.limit(`staff-login:${input.phone}:${input.businessId}`);
+      if (!success) {
+        return { success: false, error: "Rate limit exceeded. Try again later." };
+      }
+
       const account = await prisma.account.findUnique({
-        where: { email: input.email },
+        where: { phone: input.phone },
       });
 
       if (!account) {
@@ -53,6 +60,15 @@ const staffRouter = router({
         await prisma.staffAccount.update({
           where: { id: staffAccount.id },
           data: { failedAttempts: newFailed, lockedUntil },
+        });
+
+        await writeAuditLog({
+          businessId: input.businessId,
+          action: "auth.failed",
+          actorType: "STAFF",
+          actorId: account.id,
+          target: account.phone,
+          meta: { reason: "invalid_pin", attempts: newFailed, locked: !!lockedUntil },
         });
 
         return { success: false, error: "Invalid PIN" };

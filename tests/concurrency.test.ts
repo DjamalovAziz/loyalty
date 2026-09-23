@@ -8,13 +8,13 @@ describe("Concurrency and idempotency", () => {
 
   it("should prevent double spend on concurrent redeems", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestA", email: "test-ds2@test.com", role: "CUSTOMER" },
+      data: { name: "TestA", phone: "test-ds2@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000007" },
     });
     const owner = await prisma.account.create({
-      data: { name: "OwnerA", email: "owner-ds2@test.com", role: "OWNER" },
+      data: { name: "OwnerA", phone: "owner-ds2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizA", slug: "test-ds2", ownerId: owner.id },
@@ -58,13 +58,13 @@ describe("Concurrency and idempotency", () => {
 
   it("should handle concurrent earn and redeem safely", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestB", email: "test-cer2@test.com", role: "CUSTOMER" },
+      data: { name: "TestB", phone: "test-cer2@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000008" },
     });
     const owner = await prisma.account.create({
-      data: { name: "OwnerB", email: "owner-cer2@test.com", role: "OWNER" },
+      data: { name: "OwnerB", phone: "owner-cer2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizB", slug: "test-cer2", ownerId: owner.id },
@@ -131,13 +131,13 @@ describe("Concurrency and idempotency", () => {
 
   it("should enforce idempotency on duplicate requests", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestC", email: "test-idem3@test.com", role: "CUSTOMER" },
+      data: { name: "TestC", phone: "test-idem3@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000009" },
     });
     const owner = await prisma.account.create({
-      data: { name: "OwnerC", email: "owner-idem3@test.com", role: "OWNER" },
+      data: { name: "OwnerC", phone: "owner-idem3@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizC", slug: "test-idem3", ownerId: owner.id },
@@ -201,13 +201,13 @@ describe("Concurrency and idempotency", () => {
 
   it("should maintain non-negative balance under concurrency", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestD", email: "test-bal2@test.com", role: "CUSTOMER" },
+      data: { name: "TestD", phone: "test-bal2@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000010" },
     });
     const owner = await prisma.account.create({
-      data: { name: "OwnerD", email: "owner-bal2@test.com", role: "OWNER" },
+      data: { name: "OwnerD", phone: "owner-bal2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizD", slug: "test-bal2", ownerId: owner.id },

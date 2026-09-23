@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 export default function StaffLoginPage() {
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [businessId, setBusinessId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +15,7 @@ export default function StaffLoginPage() {
     const res = await fetch("/api/trpc/staff.loginWithPin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { email, pin, businessId } }),
+      body: JSON.stringify({ input: { phone, pin, businessId } }),
     });
 
     const data = await res.json();
@@ -39,10 +39,10 @@ export default function StaffLoginPage() {
         />
         <input
           className="w-full border rounded p-2"
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
           required
         />
         <input

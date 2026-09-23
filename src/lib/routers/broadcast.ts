@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { publicProcedure, router } from "@/lib/trpc";
+import { broadcastLimiter } from "@/lib/rateLimit";
 
 type Segment = "new" | "active" | "high-value" | "lapsed" | "at-risk" | "vip";
 
@@ -46,11 +47,93 @@ const broadcastRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return prisma.supportTicket.findMany({
-        where: { businessId: input.businessId },
-        take: input.limit,
-        skip: input.offset,
-        orderBy: { createdAt: "desc" },
+      const [items, total] = await Promise.all([
+        prisma.broadcastQueue.findMany({
+          where: { businessId: input.businessId },
+          take: input.limit,
+          skip: input.offset,
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.broadcastQueue.count({ where: { businessId: input.businessId } }),
+      ]);
+      return { items, total };
+    }),
+
+  templates: publicProcedure
+    .input(
+      z.object({
+        businessId: z.string(),
+        segment: z.enum(["new", "active", "high-value", "lapsed", "at-risk", "vip"]).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return prisma.broadcastTemplate.findMany({
+        where: {
+          businessId: input.businessId,
+          isActive: true,
+          ...(input.segment ? { segment: input.segment } : {}),
+        },
+        orderBy: { name: "asc" },
+      });
+    }),
+
+  createTemplate: publicProcedure
+    .input(
+      z.object({
+        businessId: z.string(),
+        name: z.string().min(1).max(100),
+        segment: z.enum(["new", "active", "high-value", "lapsed", "at-risk", "vip"]),
+        subject: z.string().max(200).optional(),
+        body: z.string().min(1).max(4000),
+        secret: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      if (input.secret !== process.env.CRON_SECRET) {
+        return { success: false, error: "Unauthorized" };
+      }
+
+      return prisma.broadcastTemplate.create({
+        data: {
+          businessId: input.businessId,
+          name: input.name,
+          segment: input.segment,
+          subject: input.subject,
+          body: input.body,
+        },
+      });
+    }),
+
+  preferences: publicProcedure
+    .input(z.object({ customerId: z.string() }))
+    .query(async ({ input }) => {
+      return prisma.broadcastPreference.findMany({
+        where: { customerId: input.customerId },
+      });
+    }),
+
+  updatePreference: publicProcedure
+    .input(
+      z.object({
+        customerId: z.string(),
+        segment: z.enum(["new", "active", "high-value", "lapsed", "at-risk", "vip"]),
+        optIn: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return prisma.broadcastPreference.upsert({
+        where: {
+          customerId_segment: {
+            customerId: input.customerId,
+            segment: input.segment,
+          },
+        },
+        update: { optIn: input.optIn },
+        create: {
+          customerId: input.customerId,
+          segment: input.segment,
+          optIn: input.optIn,
+        },
       });
     }),
 
@@ -60,6 +143,7 @@ const broadcastRouter = router({
         businessId: z.string(),
         segment: z.enum(["new", "active", "high-value", "lapsed", "at-risk", "vip"]),
         message: z.string().min(1).max(4000),
+        templateId: z.string().optional(),
         secret: z.string(),
       })
     )
@@ -68,21 +152,39 @@ const broadcastRouter = router({
         return { success: false, error: "Unauthorized" };
       }
 
+      const { success } = await broadcastLimiter.limit(`business:${input.businessId}`);
+      if (!success) {
+        return { success: false, error: "Rate limit exceeded. Try again later." };
+      }
+
+      let message = input.message;
+      if (input.templateId) {
+        const template = await prisma.broadcastTemplate.findUnique({
+          where: { id: input.templateId },
+        });
+        if (template && template.isActive) {
+          message = template.body;
+        }
+      }
+
       const memberships = await prisma.membership.findMany({
         where: { businessId: input.businessId, isActive: true },
         include: { customer: true },
       });
 
+      const now = new Date();
       const targets = memberships.filter((m) => {
+        if (!m.customer.telegramId) return false;
         if (m.customer.telegramOptOut) return false;
-        return membershipToSegment(m) === input.segment;
+        if (membershipToSegment(m) !== input.segment) return false;
+        return true;
       });
 
       const queue = await prisma.broadcastQueue.create({
         data: {
           businessId: input.businessId,
           segment: input.segment,
-          message: input.message,
+          message,
         },
       });
 
@@ -110,8 +212,20 @@ const broadcastRouter = router({
             include: { customer: true },
           });
 
+          const antiSpamSince = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const recentDeliveries = await prisma.broadcastDelivery.findMany({
+            where: {
+              customerId: { in: memberships.map((m) => m.customerId) },
+              sentAt: { gte: antiSpamSince },
+            },
+            select: { customerId: true },
+          });
+          const recentCustomerIds = new Set(recentDeliveries.map((d) => d.customerId));
+
           const targets = memberships.filter((m) => {
+            if (!m.customer.telegramId) return false;
             if (m.customer.telegramOptOut) return false;
+            if (recentCustomerIds.has(m.customerId)) return false;
             return membershipToSegment(m) === queueItem.segment;
           });
 

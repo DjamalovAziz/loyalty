@@ -8,10 +8,10 @@ describe("Auth and tenant isolation", () => {
 
   it("should not allow cross-tenant membership access", async () => {
     const owner1 = await prisma.account.create({
-      data: { name: "Owner1T", email: "owner1-tenant2@test.com", role: "OWNER" },
+      data: { name: "Owner1T", phone: "owner1-tenant2@test.com", role: "OWNER" },
     });
     const owner2 = await prisma.account.create({
-      data: { name: "Owner2T", email: "owner2-tenant2@test.com", role: "OWNER" },
+      data: { name: "Owner2T", phone: "owner2-tenant2@test.com", role: "OWNER" },
     });
     const biz1 = await prisma.business.create({
       data: { name: "Biz1T", slug: "biz1-tenant2", ownerId: owner1.id },
@@ -21,7 +21,7 @@ describe("Auth and tenant isolation", () => {
     });
 
     const customer = await prisma.customer.create({
-      data: { accountId: (await prisma.account.create({ data: { name: "C1T", email: "c1-tenant2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000011" },
+      data: { accountId: (await prisma.account.create({ data: { name: "C1T", phone: "c1-tenant2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000011" },
     });
 
     await prisma.membership.create({
@@ -41,7 +41,7 @@ describe("Auth and tenant isolation", () => {
 
   it("should require business scoped staff account", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerT", email: "owner-scope2@test.com", role: "OWNER" },
+      data: { name: "OwnerT", phone: "owner-scope2@test.com", role: "OWNER" },
     });
     const biz1 = await prisma.business.create({
       data: { name: "Biz1S", slug: "biz1-scope2", ownerId: owner.id },
@@ -50,7 +50,7 @@ describe("Auth and tenant isolation", () => {
       data: { name: "Biz2S", slug: "biz2-scope2", ownerId: owner.id },
     });
     const staffAccount = await prisma.account.create({
-      data: { name: "StaffT", email: "staff-scope2@test.com", role: "STAFF" },
+      data: { name: "StaffT", phone: "staff-scope2@test.com", role: "STAFF" },
     });
 
     const staff1 = await prisma.staffAccount.create({
@@ -66,16 +66,16 @@ describe("Auth and tenant isolation", () => {
 
   it("should not expose other business tickets via admin list", async () => {
     const owner1 = await prisma.account.create({
-      data: { name: "Owner1T2", email: "owner1-tkt2@test.com", role: "OWNER" },
+      data: { name: "Owner1T2", phone: "owner1-tkt2@test.com", role: "OWNER" },
     });
     const owner2 = await prisma.account.create({
-      data: { name: "Owner2T2", email: "owner2-tkt2@test.com", role: "OWNER" },
+      data: { name: "Owner2T2", phone: "owner2-tkt2@test.com", role: "OWNER" },
     });
     const cust1 = await prisma.customer.create({
-      data: { accountId: (await prisma.account.create({ data: { name: "C1T2", email: "c1-tkt2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000012" },
+      data: { accountId: (await prisma.account.create({ data: { name: "C1T2", phone: "c1-tkt2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000012" },
     });
     const cust2 = await prisma.customer.create({
-      data: { accountId: (await prisma.account.create({ data: { name: "C2T2", email: "c2-tkt2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000013" },
+      data: { accountId: (await prisma.account.create({ data: { name: "C2T2", phone: "c2-tkt2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000013" },
     });
     const biz1 = await prisma.business.create({
       data: { name: "Biz1T2", slug: "biz1-tkt2", ownerId: owner1.id },

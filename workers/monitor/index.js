@@ -9,15 +9,32 @@ async function handle(env: Env) {
   const secret = env.CRON_SECRET;
 
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${secret}` },
-    });
+    const [healthRes, authRes] = await Promise.all([
+      fetch(url, {
+        headers: { Authorization: `Bearer ${secret}` },
+      }),
+      fetch(`${env.APP_URL}/api/trpc/cron.authFailures`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input: { secret, minutes: 15, threshold: 10 } }),
+      }),
+    ]);
 
-    if (!res.ok) {
-      await sendAlert(env, `Health check failed: ${res.status}`);
+    if (!healthRes.ok) {
+      await sendAlert(env, `Health check failed: ${healthRes.status}`);
+    }
+
+    if (authRes.ok) {
+      const authData = await authRes.json();
+      if (authData?.result?.isAlert) {
+        await sendAlert(env, `Auth failure spike: ${authData.result.total} failures in ${authData.result.windowMinutes}min`);
+      }
     }
   } catch (err) {
-    await sendAlert(env, `Health check error: ${err}`);
+    await sendAlert(env, `Monitor error: ${err}`);
   }
 }
 

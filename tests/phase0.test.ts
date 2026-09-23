@@ -8,7 +8,7 @@ describe("Phase 0 safety", () => {
 
   it("should have DB CHECK constraint protecting against negative balance", async () => {
     const account = await prisma.account.create({
-      data: { name: "Test", email: "test-check@test.com", role: "CUSTOMER" },
+      data: { name: "Test", phone: "+998900000001", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000001" },
@@ -33,13 +33,13 @@ describe("Phase 0 safety", () => {
 
   it("should prevent concurrent negative balance via atomic redeem", async () => {
     const account = await prisma.account.create({
-      data: { name: "Test2", email: "test-conc2@test.com", role: "CUSTOMER" },
+      data: { name: "Test2", phone: "+998900000002", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000002" },
     });
     const owner = await prisma.account.create({
-      data: { name: "Owner2", email: "owner-conc2@test.com", role: "OWNER" },
+      data: { name: "Owner2", phone: "+998900000082", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test Biz2", slug: "test-conc2", ownerId: owner.id },
@@ -88,13 +88,13 @@ describe("Phase 0 safety", () => {
 
   it("should enforce idempotency on duplicate requests", async () => {
     const account = await prisma.account.create({
-      data: { name: "Test3", email: "test-idem2@test.com", role: "CUSTOMER" },
+      data: { name: "Test3", phone: "+998900000003", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000003" },
     });
     const owner = await prisma.account.create({
-      data: { name: "Owner3", email: "owner-idem2@test.com", role: "OWNER" },
+      data: { name: "Owner3", phone: "+998900000083", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test Biz3", slug: "test-idem2", ownerId: owner.id },
@@ -158,13 +158,13 @@ describe("Phase 0 safety", () => {
 
   it("should support atomic earn via staff.earnPoints", async () => {
     const account = await prisma.account.create({
-      data: { name: "Test4", email: "test-earn2@test.com", role: "CUSTOMER" },
+      data: { name: "Test4", phone: "+998900000004", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000004" },
     });
     const owner = await prisma.account.create({
-      data: { name: "Owner4", email: "owner-earn2@test.com", role: "OWNER" },
+      data: { name: "Owner4", phone: "+998900000084", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test Biz4", slug: "test-earn2", ownerId: owner.id },
@@ -202,13 +202,13 @@ describe("Phase 0 safety", () => {
 
   it("should support atomic adjustment via adjustment.create", async () => {
     const account = await prisma.account.create({
-      data: { name: "Test5", email: "test-adj2@test.com", role: "CUSTOMER" },
+      data: { name: "Test5", phone: "+998900000005", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000005" },
     });
     const owner = await prisma.account.create({
-      data: { name: "Owner5", email: "owner-adj2@test.com", role: "OWNER" },
+      data: { name: "Owner5", phone: "+998900000085", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test Biz5", slug: "test-adj2", ownerId: owner.id },
@@ -280,13 +280,13 @@ describe("Phase 0 safety", () => {
 
   it("should support points expiry via expiry.run", async () => {
     const account = await prisma.account.create({
-      data: { name: "Test6", email: "test-exp2@test.com", role: "CUSTOMER" },
+      data: { name: "Test6", phone: "+998900000006", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000006" },
     });
     const owner = await prisma.account.create({
-      data: { name: "Owner6", email: "owner-exp2@test.com", role: "OWNER" },
+      data: { name: "Owner6", phone: "+998900000086", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test Biz6", slug: "test-exp2", ownerId: owner.id, welcomePoints: 0 },
@@ -328,13 +328,13 @@ describe("Phase 0 safety", () => {
 
   it("should support staff permission assignment", async () => {
     const owner = await prisma.account.create({
-      data: { name: "Owner7", email: "owner-perm2@test.com", role: "OWNER" },
+      data: { name: "Owner7", phone: "+998900000087", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test Biz7", slug: "test-perm2", ownerId: owner.id },
     });
     const staffAccount = await prisma.account.create({
-      data: { name: "Staff7", email: "staff-perm2@test.com", role: "STAFF" },
+      data: { name: "Staff7", phone: "+998900000007", role: "STAFF" },
     });
     const staff = await prisma.staffAccount.create({
       data: { accountId: staffAccount.id, businessId: business.id, pinHash: "hash" },

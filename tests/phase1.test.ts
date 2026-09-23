@@ -8,7 +8,7 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should create and verify OTP code flow", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestOTP", email: "test-otp2@test.com", role: "CUSTOMER" },
+      data: { name: "TestOTP", phone: "test-otp2@test.com", role: "CUSTOMER" },
     });
 
     const code = "123456";
@@ -40,13 +40,13 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should enforce staff permission tiers", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerTier", email: "owner-tier2@test.com", role: "OWNER" },
+      data: { name: "OwnerTier", phone: "owner-tier2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizT", slug: "test-tier2", ownerId: owner.id },
     });
     const staffAccount = await prisma.account.create({
-      data: { name: "StaffTier", email: "staff-tier2@test.com", role: "STAFF" },
+      data: { name: "StaffTier", phone: "staff-tier2@test.com", role: "STAFF" },
     });
     const staff = await prisma.staffAccount.create({
       data: { accountId: staffAccount.id, businessId: business.id, pinHash: "hash" },
@@ -76,13 +76,13 @@ describe("Expanded Phase 0/1 coverage", () => {
   it("should enforce staff PIN lockout after failed attempts", async () => {
     const { hashPin, verifyPin } = await import("@/lib/pin");
     const owner = await prisma.account.create({
-      data: { name: "OwnerLock", email: "owner-lock@test.com", role: "OWNER" },
+      data: { name: "OwnerLock", phone: "owner-lock@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizLock", slug: "test-lock", ownerId: owner.id },
     });
     const staffAccount = await prisma.account.create({
-      data: { name: "StaffLock", email: "staff-lock@test.com", role: "STAFF" },
+      data: { name: "StaffLock", phone: "staff-lock@test.com", role: "STAFF" },
     });
     const pinHash = await hashPin("1234");
     const staff = await prisma.staffAccount.create({
@@ -104,7 +104,7 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should anonymize customer data while preserving ledger", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestAnon", email: "test-anon@test.com", role: "CUSTOMER" },
+      data: { name: "TestAnon", phone: "test-anon@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000018" },
@@ -135,13 +135,13 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should list adjustments for owner business", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerAdj", email: "owner-adj-list@test.com", role: "OWNER" },
+      data: { name: "OwnerAdj", phone: "owner-adj-list@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizAdj", slug: "test-adj-list", ownerId: owner.id },
     });
     const account = await prisma.account.create({
-      data: { name: "TestAdj", email: "test-adj-list@test.com", role: "CUSTOMER" },
+      data: { name: "TestAdj", phone: "test-adj-list@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000017" },
@@ -211,13 +211,13 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should prevent adjustment without original transaction", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestNoAdj", email: "test-no-adj2@test.com", role: "CUSTOMER" },
+      data: { name: "TestNoAdj", phone: "test-no-adj2@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000014" },
     });
     const owner = await prisma.account.create({
-      data: { name: "OwnerNoAdj", email: "owner-no-adj2@test.com", role: "OWNER" },
+      data: { name: "OwnerNoAdj", phone: "owner-no-adj2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizNA", slug: "test-no-adj2", ownerId: owner.id },
@@ -253,13 +253,13 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should expire inactive memberships", async () => {
     const account = await prisma.account.create({
-      data: { name: "TestExp", email: "test-expire2@test.com", role: "CUSTOMER" },
+      data: { name: "TestExp", phone: "test-expire2@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000015" },
     });
     const owner = await prisma.account.create({
-      data: { name: "OwnerExp", email: "owner-expire2@test.com", role: "OWNER" },
+      data: { name: "OwnerExp", phone: "owner-expire2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizExp", slug: "test-expire2", ownerId: owner.id, welcomePoints: 0 },
@@ -278,7 +278,7 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should write audit log for key actions", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerAudit", email: "owner-audit2@test.com", role: "OWNER" },
+      data: { name: "OwnerAudit", phone: "owner-audit2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizAudit", slug: "test-audit2", ownerId: owner.id },
@@ -303,7 +303,7 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should support business profile update with zod validation", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerProfile", email: "owner-profile2@test.com", role: "OWNER" },
+      data: { name: "OwnerProfile", phone: "owner-profile2@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizProfile", slug: "test-profile2", ownerId: owner.id, category: "cafe" },
@@ -320,10 +320,10 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should list support tickets with filters", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerTkt", email: "owner-tkt2@test.com", role: "OWNER" },
+      data: { name: "OwnerTkt", phone: "owner-tkt2@test.com", role: "OWNER" },
     });
     const cust = await prisma.customer.create({
-      data: { accountId: (await prisma.account.create({ data: { name: "CTkt", email: "c-tkt2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000016" },
+      data: { accountId: (await prisma.account.create({ data: { name: "CTkt", phone: "c-tkt2@test.com", role: "CUSTOMER" } })).id, phone: "+998900000016" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizTkt", slug: "test-tkt2", ownerId: owner.id },
@@ -345,16 +345,16 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should prevent self-referral and duplicate referrals", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerRef", email: "owner-ref@test.com", role: "OWNER" },
+      data: { name: "OwnerRef", phone: "owner-ref@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizRef", slug: "test-ref", ownerId: owner.id },
     });
     const account1 = await prisma.account.create({
-      data: { name: "Referrer", email: "referrer@test.com", role: "CUSTOMER" },
+      data: { name: "Referrer", phone: "referrer@test.com", role: "CUSTOMER" },
     });
     const account2 = await prisma.account.create({
-      data: { name: "Referee", email: "referee@test.com", role: "CUSTOMER" },
+      data: { name: "Referee", phone: "referee@test.com", role: "CUSTOMER" },
     });
     const customer1 = await prisma.customer.create({
       data: { accountId: account1.id, phone: "+998900000019" },
@@ -391,7 +391,7 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should execute loyalty rule once per entity", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerRule", email: "owner-rule@test.com", role: "OWNER" },
+      data: { name: "OwnerRule", phone: "owner-rule@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizRule", slug: "test-rule", ownerId: owner.id },
@@ -417,16 +417,16 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should segment customers correctly for broadcast", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerSeg", email: "owner-seg@test.com", role: "OWNER" },
+      data: { name: "OwnerSeg", phone: "owner-seg@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizSeg", slug: "test-seg", ownerId: owner.id },
     });
     const account1 = await prisma.account.create({
-      data: { name: "VIP", email: "vip@test.com", role: "CUSTOMER" },
+      data: { name: "VIP", phone: "vip@test.com", role: "CUSTOMER" },
     });
     const account2 = await prisma.account.create({
-      data: { name: "Lapsed", email: "lapsed@test.com", role: "CUSTOMER" },
+      data: { name: "Lapsed", phone: "lapsed@test.com", role: "CUSTOMER" },
     });
     const customer1 = await prisma.customer.create({
       data: { accountId: account1.id, phone: "+998900000021" },
@@ -473,16 +473,16 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should respect telegramOptOut in broadcast", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerBC", email: "owner-bc@test.com", role: "OWNER" },
+      data: { name: "OwnerBC", phone: "owner-bc@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizBC", slug: "test-bc", ownerId: owner.id },
     });
     const account1 = await prisma.account.create({
-      data: { name: "OptOut", email: "optout@test.com", role: "CUSTOMER" },
+      data: { name: "OptOut", phone: "optout@test.com", role: "CUSTOMER" },
     });
     const account2 = await prisma.account.create({
-      data: { name: "OptIn", email: "optin@test.com", role: "CUSTOMER" },
+      data: { name: "OptIn", phone: "optin@test.com", role: "CUSTOMER" },
     });
     const customer1 = await prisma.customer.create({
       data: { accountId: account1.id, phone: "+998900000023", telegramOptOut: true },
@@ -505,13 +505,13 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should create broadcast queue and deliveries", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerBQ", email: "owner-bq@test.com", role: "OWNER" },
+      data: { name: "OwnerBQ", phone: "owner-bq@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizBQ", slug: "test-bq", ownerId: owner.id },
     });
     const account = await prisma.account.create({
-      data: { name: "CustBQ", email: "cust-bq@test.com", role: "CUSTOMER" },
+      data: { name: "CustBQ", phone: "cust-bq@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000025" },
@@ -549,13 +549,13 @@ describe("Expanded Phase 0/1 coverage", () => {
 
   it("should compute analytics overview from database", async () => {
     const owner = await prisma.account.create({
-      data: { name: "OwnerAn", email: "owner-an@test.com", role: "OWNER" },
+      data: { name: "OwnerAn", phone: "owner-an@test.com", role: "OWNER" },
     });
     const business = await prisma.business.create({
       data: { name: "Test BizAn", slug: "test-an", ownerId: owner.id },
     });
     const account = await prisma.account.create({
-      data: { name: "CustAn", email: "cust-an@test.com", role: "CUSTOMER" },
+      data: { name: "CustAn", phone: "cust-an@test.com", role: "CUSTOMER" },
     });
     const customer = await prisma.customer.create({
       data: { accountId: account.id, phone: "+998900000026" },

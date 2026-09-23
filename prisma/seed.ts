@@ -4,11 +4,11 @@ const prisma = new PrismaClient();
 
 async function main() {
   const owner = await prisma.account.upsert({
-    where: { email: "owner@demo.local" },
+    where: { phone: "+998900000000" },
     update: {},
     create: {
       name: "Demo Owner",
-      email: "owner@demo.local",
+      phone: "+998900000000",
       role: "OWNER",
       passwordHash: await import("bcryptjs").then((bcrypt) =>
         bcrypt.hash("password123", 10)

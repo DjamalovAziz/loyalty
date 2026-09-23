@@ -21,3 +21,10 @@ export const apiLimiter = new Ratelimit({
   analytics: false,
   prefix: "ratelimit:api",
 });
+
+export const broadcastLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 h"),
+  analytics: false,
+  prefix: "ratelimit:broadcast",
+});

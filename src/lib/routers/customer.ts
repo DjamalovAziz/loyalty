@@ -1,23 +1,30 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { publicProcedure, protectedProcedure, router } from "@/lib/trpc";
+import { otpLimiter } from "@/lib/rateLimit";
+import { createHmac } from "crypto";
 
 const customerRouter = router({
   requestLoginOtp: publicProcedure
-    .input(z.object({ phone: z.string() }))
+    .input(z.object({ phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number") }))
     .mutation(async ({ input }) => {
+      const { success } = await otpLimiter.limit(input.phone);
+      if (!success) {
+        return { sent: false, error: "Rate limit exceeded. Try again later." };
+      }
+
       const account = await prisma.account.upsert({
-        where: { email: input.phone },
+        where: { phone: input.phone },
         update: {},
         create: {
           name: input.phone,
-          email: input.phone,
+          phone: input.phone,
           role: "CUSTOMER",
         },
       });
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const codeHash = Buffer.from(code).toString("base64");
+      const codeHash = createHmac("sha256", process.env.AUTH_SECRET || "fallback").update(code).digest("hex");
 
       await prisma.otpCode.create({
         data: {
@@ -27,15 +34,29 @@ const customerRouter = router({
         },
       });
 
+      await prisma.customer.upsert({
+        where: { accountId: account.id },
+        update: {},
+        create: {
+          accountId: account.id,
+          phone: input.phone,
+        },
+      });
+
       console.log(`OTP for ${input.phone}: ${code}`);
       return { sent: true };
     }),
 
   verifyOtp: publicProcedure
-    .input(z.object({ phone: z.string(), code: z.string() }))
+    .input(z.object({ phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number"), code: z.string() }))
     .mutation(async ({ input }) => {
+      const { success } = await otpLimiter.limit(input.phone);
+      if (!success) {
+        return { success: false, error: "Rate limit exceeded. Try again later." };
+      }
+
       const account = await prisma.account.findFirst({
-        where: { email: input.phone, role: "CUSTOMER" },
+        where: { phone: input.phone, role: "CUSTOMER" },
       });
 
       if (!account) return { success: false };
@@ -52,7 +73,7 @@ const customerRouter = router({
 
       if (!otp) return { success: false };
 
-      const isValid = Buffer.from(otp.codeHash, "base64").toString() === input.code;
+      const isValid = createHmac("sha256", process.env.AUTH_SECRET || "fallback").update(input.code).digest("hex") === otp.codeHash;
       if (!isValid) {
         await prisma.otpCode.update({
           where: { id: otp.id },
@@ -72,26 +93,25 @@ const customerRouter = router({
   join: protectedProcedure
     .input(z.object({ businessId: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      const customer = await prisma.customer.findUnique({
+      const account = await prisma.account.findUnique({
+        where: { id: ctx.user!.id },
+      });
+
+      if (!account) {
+        return { success: false, error: "Account not found" };
+      }
+
+      let customer = await prisma.customer.findUnique({
         where: { accountId: ctx.user!.id },
       });
 
       if (!customer) {
-        const newCustomer = await prisma.customer.create({
+        customer = await prisma.customer.create({
           data: {
             accountId: ctx.user!.id,
-            phone: `phone-${ctx.user!.id}`,
+            phone: account.phone,
           },
         });
-
-        await prisma.membership.create({
-          data: {
-            customerId: newCustomer.id,
-            businessId: input.businessId,
-          },
-        });
-
-        return { success: true };
       }
 
       await prisma.membership.upsert({

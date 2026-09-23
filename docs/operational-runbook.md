@@ -62,3 +62,15 @@
 - Check: latest backup in GitHub Actions artifacts.
 - Rollback: restore via `psql` or `pg_restore` to a new DB; verify before cutover.
 - Escalation: database admin, Supabase support.
+
+## RPO/RTO and restore drill
+
+- **RPO (Recovery Point Objective):** up to 24 hours. Nightly backup at 00:00 UTC; any data written after the last backup may be lost.
+- **RTO (Recovery Time Objective):** up to 2 hours for restore to a new Supabase project, plus DNS/Vercel cutover time.
+- **Restore drill:** perform at least once per quarter:
+  1. Create a new Supabase project (staging).
+  2. Run `npx prisma migrate deploy` against the new DB via Supavisor session pooler.
+  3. Restore the latest backup: `pg_restore --verbose --clean --no-owner --dbname=<STAGING_DATABASE_URL> <backup_file>`.
+  4. Verify row counts and spot-check critical tables: `Membership`, `Transaction`, `AuditLog`.
+  5. Run `cron.reconciliation` and confirm zero discrepancies.
+  6. Document drill date, duration, and issues in this runbook.
