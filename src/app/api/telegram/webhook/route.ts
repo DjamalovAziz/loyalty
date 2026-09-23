@@ -15,19 +15,20 @@ export async function POST(req: NextRequest) {
     const message = update.message;
     if (message) {
       const text = message.text || "";
-      const chatId = message.chat.id;
+      const chatId = String(message.chat.id);
       const from = message.from;
 
       if (text.startsWith("/start")) {
-        await prisma.account.upsert({
-          where: { email: String(chatId) },
-          update: {},
-          create: {
-            name: from?.first_name || "User",
-            email: String(chatId),
-            role: "CUSTOMER",
-          },
+        const existingCustomer = await prisma.customer.findFirst({
+          where: { telegramId: chatId },
+          include: { account: true },
         });
+
+        if (existingCustomer) {
+          return NextResponse.json({ ok: true, message: `Welcome back, ${existingCustomer.account.name}!` });
+        }
+
+        return NextResponse.json({ ok: true, message: "Please link your account in the app first." });
       }
     }
 

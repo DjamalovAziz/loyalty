@@ -23,8 +23,8 @@ export async function GET(req: Request) {
           if (account) {
             user = { id: account.id, role: account.role };
           }
-        } catch {
-          // ignore session lookup errors
+        } catch (err) {
+          console.error("Session lookup error:", err);
         }
       }
 
@@ -55,8 +55,8 @@ export async function POST(req: Request) {
           if (account) {
             user = { id: account.id, role: account.role };
           }
-        } catch {
-          // ignore session lookup errors
+        } catch (err) {
+          console.error("Session lookup error:", err);
         }
       }
 

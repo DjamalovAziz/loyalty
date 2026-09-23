@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { publicProcedure, router } from "@/lib/trpc";
+import { publicProcedure, protectedProcedure, router } from "@/lib/trpc";
 
 const customerRouter = router({
   requestLoginOtp: publicProcedure
@@ -69,18 +69,18 @@ const customerRouter = router({
       return { success: true, accountId: account.id };
     }),
 
-  join: publicProcedure
-    .input(z.object({ businessId: z.string(), accountId: z.string() }))
-    .mutation(async ({ input }) => {
+  join: protectedProcedure
+    .input(z.object({ businessId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
       const customer = await prisma.customer.findUnique({
-        where: { accountId: input.accountId },
+        where: { accountId: ctx.user!.id },
       });
 
       if (!customer) {
         const newCustomer = await prisma.customer.create({
           data: {
-            accountId: input.accountId,
-            phone: `phone-${input.accountId}`,
+            accountId: ctx.user!.id,
+            phone: `phone-${ctx.user!.id}`,
           },
         });
 
@@ -106,11 +106,11 @@ const customerRouter = router({
       return { success: true };
     }),
 
-  leave: publicProcedure
-    .input(z.object({ businessId: z.string(), customerId: z.string(), accountId: z.string() }))
-    .mutation(async ({ input }) => {
-      const customer = await prisma.customer.findFirst({
-        where: { id: input.customerId, accountId: input.accountId },
+  leave: protectedProcedure
+    .input(z.object({ businessId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const customer = await prisma.customer.findUnique({
+        where: { accountId: ctx.user!.id },
       });
 
       if (!customer) {
@@ -125,11 +125,11 @@ const customerRouter = router({
       return { success: true };
     }),
 
-  anonymize: publicProcedure
-    .input(z.object({ customerId: z.string(), accountId: z.string() }))
-    .mutation(async ({ input }) => {
+  anonymize: protectedProcedure
+    .input(z.object({ customerId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
       const customer = await prisma.customer.findFirst({
-        where: { id: input.customerId, accountId: input.accountId },
+        where: { id: input.customerId, accountId: ctx.user!.id },
       });
 
       if (!customer) {
@@ -152,7 +152,7 @@ const customerRouter = router({
         data: {
           action: "customer.anonymize",
           actorType: "CUSTOMER",
-          actorId: input.accountId,
+          actorId: ctx.user!.id,
           target: customer.id,
           meta: { previousPhone: customer.phone },
         },

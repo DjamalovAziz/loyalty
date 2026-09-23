@@ -77,6 +77,14 @@ const staffRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const staffAccount = await prisma.staffAccount.findFirst({
+        where: { id: input.staffAccountId, businessId: input.businessId, isActive: true },
+      });
+
+      if (!staffAccount) {
+        return { success: false, error: "Staff account not found or inactive" };
+      }
+
       const membership = await prisma.membership.findUnique({
         where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
@@ -157,6 +165,14 @@ const staffRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const staffAccount = await prisma.staffAccount.findFirst({
+        where: { id: input.staffAccountId, businessId: input.businessId, isActive: true },
+      });
+
+      if (!staffAccount) {
+        return { success: false, error: "Staff account not found or inactive" };
+      }
+
       const membership = await prisma.membership.findUnique({
         where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
@@ -221,6 +237,14 @@ const staffRouter = router({
   checkInByCustomerId: publicProcedure
     .input(z.object({ businessId: z.string(), customerId: z.string(), staffAccountId: z.string() }))
     .mutation(async ({ input }) => {
+      const staffAccount = await prisma.staffAccount.findFirst({
+        where: { id: input.staffAccountId, businessId: input.businessId, isActive: true },
+      });
+
+      if (!staffAccount) {
+        return { success: false, error: "Staff account not found or inactive" };
+      }
+
       const membership = await prisma.membership.findUnique({
         where: { customerId_businessId: { customerId: input.customerId, businessId: input.businessId } },
       });
@@ -235,6 +259,14 @@ const staffRouter = router({
   manualCheckIn: publicProcedure
     .input(z.object({ businessId: z.string(), customerId: z.string(), staffAccountId: z.string(), confirmationCode: z.string() }))
     .mutation(async ({ input }) => {
+      const staffAccount = await prisma.staffAccount.findFirst({
+        where: { id: input.staffAccountId, businessId: input.businessId, isActive: true },
+      });
+
+      if (!staffAccount) {
+        return { success: false, error: "Staff account not found or inactive" };
+      }
+
       if (input.confirmationCode !== process.env.CRON_SECRET) {
         return { success: false, error: "Invalid confirmation code" };
       }

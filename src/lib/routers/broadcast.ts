@@ -141,6 +141,8 @@ const broadcastRouter = router({
                 });
               }
             }
+
+            await new Promise((resolve) => setTimeout(resolve, 1100));
           }
 
           await prisma.broadcastQueue.update({
