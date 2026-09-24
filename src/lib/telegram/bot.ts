@@ -103,6 +103,10 @@ bot.on(message("contact"), async (ctx) => {
       reply_markup: { remove_keyboard: true },
     }
   );
+
+  await ctx.reply(
+    `Open the app: ${process.env.NEXT_PUBLIC_APP_URL || "https://loyalty-aziz.vercel.app"}/auth/signin`
+  );
 });
 
 export default bot;

@@ -11,7 +11,7 @@ export default function Home() {
         <Link href="/explore" className="px-4 py-2 bg-blue-600 text-white rounded">
           Найти бизнес
         </Link>
-        <Link href="/me" className="px-4 py-2 border rounded">
+        <Link href="/profile" className="px-4 py-2 border rounded">
           Мой кабинет
         </Link>
       </div>

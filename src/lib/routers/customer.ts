@@ -5,6 +5,15 @@ import { otpLimiter } from "@/lib/rateLimit";
 import { createHmac } from "crypto";
 
 const customerRouter = router({
+  me: protectedProcedure
+    .query(async ({ ctx }) => {
+      const account = await prisma.account.findUnique({
+        where: { id: ctx.user!.id },
+        select: { id: true, phone: true, role: true, name: true },
+      });
+      return account;
+    }),
+
   requestLoginOtp: publicProcedure
     .input(z.object({ phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number") }))
     .mutation(async ({ input }) => {

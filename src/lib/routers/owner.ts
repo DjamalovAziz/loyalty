@@ -13,37 +13,54 @@ const ownerRouter = router({
       return business;
     }),
 
-  signup: publicProcedure
+  createBusiness: protectedProcedure
     .input(
       z.object({
-        phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
+        name: z.string().min(1, "Business name is required"),
+        category: z.string().optional(),
+        address: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      const existing = await prisma.account.findFirst({
-        where: { phone: input.phone },
+    .mutation(async ({ input, ctx }) => {
+      const existing = await prisma.business.findFirst({
+        where: { ownerId: ctx.user!.id },
       });
 
       if (existing) {
-        return { success: false, error: "Account already exists" };
+        return { success: false, error: "You already have a business" };
       }
 
-      const passwordHash = await hashPin(input.password);
-
-      const account = await prisma.account.create({
+      const business = await prisma.business.create({
         data: {
-          phone: input.phone,
-          name: input.phone,
-          passwordHash,
-          role: "OWNER",
+          name: input.name,
+          slug: `business-${ctx.user!.id}`,
+          category: input.category,
+          address: input.address,
+          ownerId: ctx.user!.id,
         },
       });
 
-      return {
-        success: true,
-        accountId: account.id,
-      };
+      const pinCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const pinHash = await hashPin(pinCode);
+
+      const staffAccount = await prisma.staffAccount.create({
+        data: {
+          accountId: ctx.user!.id,
+          businessId: business.id,
+          pinHash,
+          isActive: true,
+        },
+      });
+
+      await prisma.staffPermission.create({
+        data: {
+          staffId: staffAccount.id,
+          role: "OWNER",
+          isActive: true,
+        },
+      });
+
+      return { success: true, business, pinCode };
     }),
 
   businessProfileUpdate: publicProcedure
