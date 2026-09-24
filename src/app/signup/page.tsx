@@ -15,25 +15,42 @@ export default function SignUpPage() {
     setError(null);
     setLoading(true);
 
+    if (!phone || phone.trim().length < 3) {
+      setError("Enter a valid phone number");
+      setLoading(false);
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      setError("Password must be at least 8 characters");
+      setLoading(false);
+      return;
+    }
+
     if (password !== confirm) {
       setError("Passwords do not match");
       setLoading(false);
       return;
     }
 
-    const res = await fetch("/api/trpc/signup.start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, password }),
-    });
+    try {
+      const res = await fetch("/api/trpc/signup.start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim(), password }),
+      });
 
-    const data = await res.json();
-    if (data.result?.success) {
-      setTelegramUrl(data.result.telegramUrl);
-    } else {
-      setError(data.result?.error || "Signup failed");
+      const data = await res.json();
+      if (data.result?.success) {
+        setTelegramUrl(data.result.telegramUrl);
+      } else {
+        setError(data.result?.error || "Signup failed");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (telegramUrl) {

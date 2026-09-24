@@ -34,8 +34,9 @@ export async function setCachedAnalytics(key: string, data: any, ttlSeconds = 30
 export async function setSignupToken(token: string, data: { phone: string; passwordHash: string }, ttlSeconds = 600) {
   try {
     await redis.setex(`signup:${token}`, ttlSeconds, JSON.stringify(data));
+    return true;
   } catch {
-    // ignore cache errors
+    return false;
   }
 }
 

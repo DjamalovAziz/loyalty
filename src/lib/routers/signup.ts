@@ -24,10 +24,14 @@ const signupRouter = router({
       const passwordHash = await bcrypt.hash(input.password, 12);
       const token = crypto.randomUUID();
 
-      await setSignupToken(token, {
+      const stored = await setSignupToken(token, {
         phone: input.phone,
         passwordHash,
       });
+
+      if (!stored) {
+        return { success: false, error: "Temporary storage unavailable. Please try again later." };
+      }
 
       const botUsername = process.env.TELEGRAM_BOT_USERNAME || "loyaltysphere_bot";
       const telegramUrl = `https://t.me/${botUsername}?start=${token}`;

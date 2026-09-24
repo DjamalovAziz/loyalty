@@ -43,9 +43,14 @@ export default function ProfilePage() {
         body: JSON.stringify({ input: {} }),
       }).then((r) => r.json()),
     ]).then(([accountData, membershipsData, businessData]) => {
-      setAccount(accountData.result?.data || null);
-      setMemberships(membershipsData.result?.data || []);
-      setBusiness(businessData.result?.data || null);
+      const account = accountData?.result?.data;
+      if (!account) {
+        window.location.href = "/auth/signin";
+        return;
+      }
+      setAccount(account);
+      setMemberships(membershipsData?.result?.data || []);
+      setBusiness(businessData?.result?.data || null);
     });
   }, []);
 
