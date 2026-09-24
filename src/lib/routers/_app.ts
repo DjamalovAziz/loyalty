@@ -19,6 +19,7 @@ import segmentationRouter from "./segmentation";
 import locationRouter from "./location";
 import reconciliationRouter from "./reconciliation";
 import quotaRouter from "./quota";
+import signupRouter from "./signup";
 
 export const appRouter = router({
   customer: customerRouter,
@@ -41,6 +42,7 @@ export const appRouter = router({
   location: locationRouter,
   reconciliation: reconciliationRouter,
   quota: quotaRouter,
+  signup: signupRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -364,3 +364,4 @@ Node, env vars (`.env.example`), DB, Prisma, Redis, Telegram, local webhook, tes
 19. ~~Fix OTP signin flow to use NextAuth~~: ✅ сделано — NextAuth credentials provider поддерживает OTP code, signin page использует `signIn("phone", ...)`.
 20. ~~Remove hardcoded demo IDs from UI pages~~: ✅ сделано — добавлен `owner.myBusiness` endpoint, все dashboard/staff страницы используют реальный businessId из сессии.
 21. ~~Fix `me` page to show actual memberships~~: ✅ сделано — добавлен `customer.myMemberships` endpoint, страница `/me` теперь показывает реальные memberships пользователя.
+22. ~~Add unified signup flow for all users except admin~~: ✅ сделано — `/signup` страница с выбором роли (customer/owner/staff). Customer: Telegram verification; Owner: creates Account only; Staff: invite code acceptance. Business creation is separate step.

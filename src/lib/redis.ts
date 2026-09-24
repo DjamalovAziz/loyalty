@@ -30,3 +30,28 @@ export async function setCachedAnalytics(key: string, data: any, ttlSeconds = 30
     // ignore cache errors
   }
 }
+
+export async function setSignupToken(token: string, data: { phone: string; passwordHash: string }, ttlSeconds = 600) {
+  try {
+    await redis.setex(`signup:${token}`, ttlSeconds, JSON.stringify(data));
+  } catch {
+    // ignore cache errors
+  }
+}
+
+export async function getSignupToken(token: string) {
+  try {
+    const data = await redis.get(`signup:${token}`);
+    return data ? JSON.parse(data as string) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteSignupToken(token: string) {
+  try {
+    await redis.del(`signup:${token}`);
+  } catch {
+    // ignore cache errors
+  }
+}

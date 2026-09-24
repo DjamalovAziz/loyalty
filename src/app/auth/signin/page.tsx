@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 
 export default function SignInPage() {
@@ -40,8 +41,8 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-20">
-      <h1 className="text-2xl font-bold mb-4">Sign in</h1>
+    <div className="max-w-md mx-auto mt-20 space-y-4">
+      <h1 className="text-2xl font-bold">Sign in</h1>
       {!sent ? (
         <form onSubmit={requestOtp} className="space-y-4">
           <input
@@ -71,7 +72,10 @@ export default function SignInPage() {
           </button>
         </form>
       )}
-      {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+      <p className="text-sm">
+        Don&apos;t have an account? <Link href="/signup" className="text-blue-600">Sign up</Link>
+      </p>
     </div>
   );
 }

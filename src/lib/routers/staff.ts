@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { publicProcedure, router } from "@/lib/trpc";
+import { publicProcedure, protectedProcedure, router } from "@/lib/trpc";
 import { hashPin, verifyPin } from "@/lib/pin";
 import { writeAuditLog } from "@/lib/audit";
 import { apiLimiter } from "@/lib/rateLimit";
+import { createHmac } from "crypto";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -301,6 +302,67 @@ const staffRouter = router({
       });
 
       return { success: true, points: membership.points };
+    }),
+
+  acceptInvite: protectedProcedure
+    .input(z.object({ code: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const codeHash = createHmac("sha256", process.env.AUTH_SECRET || "fallback").update(input.code).digest("hex");
+
+      const invite = await prisma.staffInvite.findFirst({
+        where: { code: codeHash, usedAt: null },
+        include: { business: true },
+      });
+
+      if (!invite || invite.expiresAt < new Date()) {
+        return { success: false, error: "Invalid or expired invite code" };
+      }
+
+      const account = await prisma.account.findUnique({
+        where: { id: ctx.user!.id },
+      });
+
+      if (!account) {
+        return { success: false, error: "Account not found" };
+      }
+
+      const existingStaff = await prisma.staffAccount.findFirst({
+        where: { accountId: account.id, businessId: invite.businessId },
+      });
+
+      if (existingStaff) {
+        return { success: false, error: "Already a staff member of this business" };
+      }
+
+      await prisma.staffAccount.create({
+        data: {
+          accountId: account.id,
+          businessId: invite.businessId,
+          pinHash: "",
+          isActive: true,
+        },
+      });
+
+      const createdStaff = await prisma.staffAccount.findFirst({
+        where: { accountId: account.id, businessId: invite.businessId },
+      });
+
+      if (createdStaff) {
+        await prisma.staffPermission.create({
+          data: {
+            staffId: createdStaff.id,
+            role: invite.role,
+            isActive: true,
+          },
+        });
+      }
+
+      await prisma.staffInvite.update({
+        where: { id: invite.id },
+        data: { usedAt: new Date() },
+      });
+
+      return { success: true, businessId: invite.businessId };
     }),
 });
 

@@ -16,19 +16,19 @@ export async function POST(req: NextRequest) {
     if (message) {
       const text = message.text || "";
       const chatId = String(message.chat.id);
-      const from = message.from;
 
       if (text.startsWith("/start")) {
-        const existingCustomer = await prisma.customer.findFirst({
-          where: { telegramId: chatId },
-          include: { account: true },
-        });
+        const parts = text.split(" ");
+        const token = parts[1];
 
-        if (existingCustomer) {
-          return NextResponse.json({ ok: true, message: `Welcome back, ${existingCustomer.account.name}!` });
+        if (token) {
+          return NextResponse.json({
+            ok: true,
+            message: "Token received. Please open the bot to continue.",
+            token,
+            chatId,
+          });
         }
-
-        return NextResponse.json({ ok: true, message: "Please link your account in the app first." });
       }
     }
 

@@ -8,6 +8,8 @@ const links = [
   { href: "/explore", label: "Каталог" },
   { href: "/me", label: "Мой кабинет" },
   { href: "/support", label: "Поддержка" },
+  { href: "/auth/signin", label: "Sign in" },
+  { href: "/signup", label: "Sign up" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/staff", label: "Staff" },
   { href: "/admin", label: "Admin" },
