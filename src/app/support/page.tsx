@@ -12,11 +12,15 @@ export default function SupportPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        input: { subject, message, source: "CUSTOMER", customerId: "temp", businessId: "temp" },
+        subject,
+        message,
+        source: "CUSTOMER",
+        customerId: "temp",
+        businessId: "temp",
       }),
     });
     const data = await res.json();
-    if (data.result?.success) {
+    if (data.result?.data?.success) {
       alert("Обращение отправлено");
       setSubject("");
       setMessage("");

@@ -20,12 +20,12 @@ function ExploreContent() {
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
 
-  useEffect(() => {
+   useEffect(() => {
     const query = searchParams.get("q") || "";
     fetch("/api/trpc/business.explore", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { query, limit: 20, offset: 0 } }),
+      body: JSON.stringify({ query, limit: 20, offset: 0 }),
     })
       .then((r) => r.json())
       .then((data) => {

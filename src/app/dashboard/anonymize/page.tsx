@@ -11,10 +11,10 @@ export default function CustomerAnonymizePage() {
     const res = await fetch("/api/trpc/customer.anonymize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { customerId } }),
+      body: JSON.stringify({ customerId }),
     });
     const data = await res.json();
-    setResult(data.result?.success ? "Анонимизировано" : data.result?.error || "Ошибка");
+    setResult(data.result?.data?.success ? "Анонимизировано" : data.result?.data?.error || "Ошибка");
   };
 
   return (

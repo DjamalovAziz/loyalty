@@ -10,7 +10,7 @@ export default function LoyaltyRulesPage() {
     fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {} }),
+      body: JSON.stringify({}),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -20,7 +20,7 @@ export default function LoyaltyRulesPage() {
         return fetch("/api/trpc/loyaltyRule.list", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: { businessId: biz.id } }),
+          body: JSON.stringify({ businessId: biz.id }),
         });
       })
       .then((r) => r?.json())

@@ -15,14 +15,14 @@ export default function StaffLoginPage() {
     const res = await fetch("/api/trpc/staff.loginWithPin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { phone, pin, businessId } }),
+      body: JSON.stringify({ phone, pin, businessId }),
     });
 
     const data = await res.json();
-    if (data.result?.success) {
+    if (data.result?.data?.success) {
       window.location.href = "/staff";
     } else {
-      setError(data.result?.error || "Login failed");
+      setError(data.result?.data?.error || "Login failed");
     }
   };
 

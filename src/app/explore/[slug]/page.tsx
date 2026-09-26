@@ -25,7 +25,7 @@ export default function BusinessPage({ params }: { params: Promise<Params> }) {
     fetch("/api/trpc/business.getBySlug", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { slug } }),
+      body: JSON.stringify({ slug }),
     })
       .then((r) => r.json())
       .then((data) => {

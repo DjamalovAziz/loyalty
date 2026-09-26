@@ -10,7 +10,7 @@ export default function ReferralsPage() {
     fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {} }),
+      body: JSON.stringify({}),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -20,7 +20,7 @@ export default function ReferralsPage() {
         return fetch("/api/trpc/segmentation.list", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: { businessId: biz.id } }),
+          body: JSON.stringify({ businessId: biz.id }),
         });
       })
       .then((r) => r?.json())

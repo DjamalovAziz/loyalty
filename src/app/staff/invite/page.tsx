@@ -18,10 +18,10 @@ export default function StaffInvitePage() {
     });
 
     const data = await res.json();
-    if (data.result?.success) {
+    if (data.result?.data?.success) {
       setSuccess(true);
     } else {
-      setError(data.result?.error || "Invalid invite code");
+      setError(data.result?.data?.error || "Invalid invite code");
     }
   };
 

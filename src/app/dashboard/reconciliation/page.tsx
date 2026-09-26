@@ -20,7 +20,7 @@ export default function ReconciliationPage() {
     const res = await fetch("/api/trpc/reconciliation.check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { businessId } }),
+      body: JSON.stringify({ businessId }),
     });
     const data = await res.json();
     setResult(data.result?.data || null);
@@ -31,7 +31,7 @@ export default function ReconciliationPage() {
     fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {} }),
+      body: JSON.stringify({}),
     })
       .then((r) => r.json())
       .then((data) => {

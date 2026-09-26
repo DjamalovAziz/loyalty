@@ -30,17 +30,17 @@ export default function ProfilePage() {
       fetch("/api/trpc/customer.me", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: {} }),
+        body: JSON.stringify({}),
       }).then((r) => r.json()),
       fetch("/api/trpc/customer.myMemberships", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: {} }),
+        body: JSON.stringify({}),
       }).then((r) => r.json()),
       fetch("/api/trpc/owner.myBusiness", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: {} }),
+        body: JSON.stringify({}),
       }).then((r) => r.json()),
     ]).then(([accountData, membershipsData, businessData]) => {
       const account = accountData?.result?.data;

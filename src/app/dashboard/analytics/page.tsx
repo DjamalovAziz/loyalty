@@ -19,7 +19,7 @@ export default function AnalyticsPage() {
     fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {} }),
+      body: JSON.stringify({}),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -29,7 +29,7 @@ export default function AnalyticsPage() {
         return fetch("/api/trpc/analytics.businessOverview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: { businessId: biz.id } }),
+          body: JSON.stringify({ businessId: biz.id }),
         });
       })
       .then((r) => r?.json())

@@ -19,7 +19,7 @@ export default function AdminPage() {
     fetch("/api/trpc/admin.listTickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { status: filter || undefined, limit: 50, offset: 0 } }),
+      body: JSON.stringify({ status: filter || undefined, limit: 50, offset: 0 }),
     })
       .then((r) => r.json())
       .then((data) => setTickets(data.result?.data?.items || []));

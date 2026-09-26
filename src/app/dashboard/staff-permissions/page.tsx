@@ -18,7 +18,7 @@ export default function StaffPermissionsPage() {
     const res = await fetch("/api/trpc/staffPermission.list", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { staffId } }),
+      body: JSON.stringify({ staffId }),
     });
     const data = await res.json();
     setPermissions(data.result?.data || []);
@@ -29,7 +29,7 @@ export default function StaffPermissionsPage() {
     await fetch("/api/trpc/staffPermission.assign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { staffId, role } }),
+      body: JSON.stringify({ staffId, role }),
     });
     load();
   };

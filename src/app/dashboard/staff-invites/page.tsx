@@ -14,7 +14,7 @@ export default function StaffInvitesPage() {
     const res = await fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {} }),
+      body: JSON.stringify({}),
     });
     const data = await res.json();
     const biz = data.result?.data;
@@ -28,7 +28,7 @@ export default function StaffInvitesPage() {
     const res = await fetch("/api/trpc/owner.listStaffInvites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { businessId: bizId } }),
+      body: JSON.stringify({ businessId: bizId }),
     });
     const data = await res.json();
     setInvites(data.result?.data || []);
@@ -41,11 +41,11 @@ export default function StaffInvitesPage() {
     const res = await fetch("/api/trpc/owner.createStaffInvite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { businessId, role, expiresInDays } }),
+      body: JSON.stringify({ businessId, role, expiresInDays }),
     });
     const data = await res.json();
-    if (data.result?.success) {
-      setNewCode(data.result.rawCode);
+    if (data.result?.data?.success) {
+      setNewCode(data.result.data.rawCode);
       loadInvites(businessId);
     }
     setLoading(false);

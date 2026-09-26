@@ -22,7 +22,7 @@ export default function DashboardPage() {
     fetch("/api/trpc/business.explore", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { limit: 1, offset: 0 } }),
+      body: JSON.stringify({ limit: 1, offset: 0 }),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -37,7 +37,7 @@ export default function DashboardPage() {
     await fetch("/api/trpc/owner.businessProfileUpdate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { businessId: business.id, ...patch } }),
+      body: JSON.stringify({ businessId: business.id, ...patch }),
     });
     setBusiness({ ...business, ...patch });
     setSaving(false);

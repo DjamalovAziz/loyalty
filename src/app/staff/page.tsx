@@ -22,7 +22,7 @@ export default function StaffPage() {
     fetch("/api/trpc/owner.myBusiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {} }),
+      body: JSON.stringify({}),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -45,21 +45,19 @@ export default function StaffPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        input: {
-          businessId,
-          staffAccountId,
-          customerId: selectedCustomerId,
-          amount,
-          idempotencyKey: `${mode}:${selectedCustomerId}:${Date.now()}`,
-        },
+        businessId,
+        staffAccountId,
+        customerId: selectedCustomerId,
+        amount,
+        idempotencyKey: `${mode}:${selectedCustomerId}:${Date.now()}`,
       }),
     });
 
     const data = await res.json();
-    if (data.result?.success) {
+    if (data.result?.data?.success) {
       setMessage("Успешно");
     } else {
-      setMessage(data.result?.error || "Ошибка");
+      setMessage(data.result?.data?.error || "Ошибка");
     }
   };
 
