@@ -13,30 +13,35 @@ const signupRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const existing = await prisma.account.findFirst({
-        where: { phone: input.phone },
-      });
+      try {
+        const existing = await prisma.account.findFirst({
+          where: { phone: input.phone },
+        });
 
-      if (existing) {
-        return { success: false, error: "Account already exists" };
+        if (existing) {
+          return { success: false, error: "Account already exists" };
+        }
+
+        const passwordHash = await bcrypt.hash(input.password, 12);
+        const token = crypto.randomUUID();
+
+        const stored = await setSignupToken(token, {
+          phone: input.phone,
+          passwordHash,
+        });
+
+        if (!stored) {
+          return { success: false, error: "Temporary storage unavailable. Please try again later." };
+        }
+
+        const botUsername = process.env.TELEGRAM_BOT_USERNAME || "loyaltysphere_bot";
+        const telegramUrl = `https://t.me/${botUsername}?start=${token}`;
+
+        return { success: true, telegramUrl };
+      } catch (err) {
+        console.error("Signup error:", err);
+        return { success: false, error: "Internal error. Please try again later." };
       }
-
-      const passwordHash = await bcrypt.hash(input.password, 12);
-      const token = crypto.randomUUID();
-
-      const stored = await setSignupToken(token, {
-        phone: input.phone,
-        passwordHash,
-      });
-
-      if (!stored) {
-        return { success: false, error: "Temporary storage unavailable. Please try again later." };
-      }
-
-      const botUsername = process.env.TELEGRAM_BOT_USERNAME || "loyaltysphere_bot";
-      const telegramUrl = `https://t.me/${botUsername}?start=${token}`;
-
-      return { success: true, telegramUrl };
     }),
 });
 
