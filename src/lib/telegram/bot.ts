@@ -1,7 +1,7 @@
 import { Telegraf } from "telegraf";
 import { message } from "telegraf/filters";
 import { prisma } from "@/lib/prisma";
-import { getSignupToken, deleteSignupToken, setSignupToken } from "@/lib/redis";
+import { getVerifyToken, deleteVerifyToken } from "@/lib/redis";
 
 const signupSessions = new Map<string, { token: string; phone: string }>();
 
@@ -13,7 +13,7 @@ bot.start(async (ctx) => {
   const token = parts[1];
 
   if (token) {
-    const signupData = await getSignupToken(token);
+    const signupData = await getVerifyToken(token);
     if (!signupData) {
       await ctx.reply("Invalid or expired signup token.");
       return;
@@ -56,7 +56,7 @@ bot.on(message("contact"), async (ctx) => {
     return;
   }
 
-  const signupData = await getSignupToken(session.token);
+  const signupData = await getVerifyToken(session.token);
   if (!signupData) {
     await ctx.reply("Invalid or expired signup token.");
     signupSessions.delete(chatId);
@@ -68,7 +68,7 @@ bot.on(message("contact"), async (ctx) => {
 
   if (normalizedFromTelegram !== normalizedFromRedis) {
     await ctx.reply("Phone numbers do not match. Registration cancelled.");
-    await deleteSignupToken(session.token);
+    await deleteVerifyToken(session.token);
     signupSessions.delete(chatId);
     return;
   }
@@ -94,7 +94,7 @@ bot.on(message("contact"), async (ctx) => {
     },
   });
 
-  await deleteSignupToken(session.token);
+  await deleteVerifyToken(session.token);
   signupSessions.delete(chatId);
 
   await ctx.reply(

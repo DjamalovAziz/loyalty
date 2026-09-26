@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { publicProcedure, router } from "@/lib/trpc";
 import bcrypt from "bcryptjs";
-import { setSignupToken } from "@/lib/redis";
+import { setVerifyToken } from "@/lib/redis";
 
 const signupRouter = router({
   start: publicProcedure
@@ -25,7 +25,7 @@ const signupRouter = router({
         const passwordHash = await bcrypt.hash(input.password, 12);
         const token = crypto.randomUUID();
 
-        const stored = await setSignupToken(token, {
+        const stored = await setVerifyToken(token, {
           phone: input.phone,
           passwordHash,
         });
