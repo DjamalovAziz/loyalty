@@ -15,8 +15,8 @@ export default function SignUpPage() {
     setError(null);
     setLoading(true);
 
-    if (!phone || phone.trim().length < 3) {
-      setError("Enter a valid phone number");
+    if (!phone || !/^\+?[1-9]\d{1,14}$/.test(phone.trim())) {
+      setError("Enter a valid phone number in international format");
       setLoading(false);
       return;
     }
@@ -41,10 +41,11 @@ export default function SignUpPage() {
       });
 
       const data = await res.json();
-      if (data.result?.success) {
-        setTelegramUrl(data.result.telegramUrl);
+      const result = data?.result?.data ?? data?.result;
+      if (result?.success) {
+        setTelegramUrl(result.telegramUrl);
       } else {
-        setError(data.result?.error || "Signup failed");
+        setError(result?.error || "Signup failed");
       }
     } catch {
       setError("Network error. Please try again.");
