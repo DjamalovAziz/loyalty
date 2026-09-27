@@ -70,6 +70,7 @@ export default function SignUpPage() {
         <p className="text-sm text-gray-500">
           After confirming in Telegram, you will be redirected to your profile.
         </p>
+        <p className="text-xs text-gray-400">deployed-signup-v2</p>
       </div>
     );
   }
