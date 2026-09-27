@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import bot from "@/lib/telegram/bot";
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-telegram-bot-api-secret-token");
@@ -11,27 +11,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const update = await req.json();
-
-    const message = update.message;
-    if (message) {
-      const text = message.text || "";
-      const chatId = String(message.chat.id);
-
-      if (text.startsWith("/start")) {
-        const parts = text.split(" ");
-        const token = parts[1];
-
-        if (token) {
-          return NextResponse.json({
-            ok: true,
-            message: "Token received. Please open the bot to continue.",
-            token,
-            chatId,
-          });
-        }
-      }
-    }
-
+    await bot.handleUpdate(update);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Webhook error:", err);

@@ -56,3 +56,29 @@ export async function deleteVerifyToken(token: string) {
     // ignore cache errors
   }
 }
+
+export async function setSignupSession(chatId: string, data: { token: string; phone: string }, ttlSeconds = 600) {
+  try {
+    await redis.setex(`session:${chatId}`, ttlSeconds, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getSignupSession(chatId: string) {
+  try {
+    const data = await redis.get(`session:${chatId}`);
+    return data ? JSON.parse(data as string) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteSignupSession(chatId: string) {
+  try {
+    await redis.del(`session:${chatId}`);
+  } catch {
+    // ignore cache errors
+  }
+}
